@@ -160,6 +160,11 @@
           <span class="hidden sm:inline">Lưu</span>
         </button>
 
+        <!-- Nút Excel trực tiếp, sử dụng được cả trên điện thoại -->
+        <button type="button" onclick="exportToExcel()" class="px-3.5 py-1.5 text-xs bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-semibold flex items-center gap-2" title="Tải báo giá Excel">
+          <i class="fa-solid fa-file-excel"></i> Excel (.xlsx)
+        </button>
+
         <!-- Export Dropdown -->
         <div class="relative group">
           <button class="px-3.5 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-red-900/30 transition">
@@ -474,6 +479,13 @@
         </div>
       </div>
 
+      <!-- Tùy chọn chi phí công trình: các ô này độc lập với giá sản phẩm -->
+      <div id="optionalCostsPanel" class="border border-amber-200 bg-amber-50 rounded-xl p-4">
+        <h4 class="font-bold text-slate-800 text-sm mb-1">Tùy chọn chi phí theo từng đơn hàng</h4>
+        <p class="text-xs text-slate-600 mb-3">Bật/tắt nhóm hạng mục và nhập giá tại đây. Các mục không chọn sẽ không xuất hiện trên báo giá hoặc Excel. Đơn giá điện chưa được phân bổ nên cần nhập thủ công.</p>
+        <div id="optionalCostsList" class="grid grid-cols-1 xl:grid-cols-3 gap-3"></div>
+      </div>
+
       <!-- Editable Table Container -->
       <div class="overflow-x-auto rounded-xl border border-slate-200">
         <table class="w-full text-left text-xs border-collapse">
@@ -544,7 +556,16 @@
 
         <div>
           <label class="block font-semibold text-slate-700 mb-1">Chính sách bảo hành:</label>
-          <input type="text" id="warrantyInput" value="Bảo hành chính hãng 24 tháng, xử lý sự cố trong vòng 24h" oninput="syncTermsToPreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg">
+          <select id="warrantyMonths" onchange="applyWarrantyMonths()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg">
+            <option value="12">12 tháng</option>
+            <option value="24" selected>24 tháng</option>
+            <option value="36">36 tháng</option>
+            <option value="48">48 tháng</option>
+            <option value="60">60 tháng</option>
+            <option value="other">Thời hạn khác</option>
+          </select>
+          <input type="number" id="warrantyCustomMonths" min="1" max="120" step="1" placeholder="Số tháng" oninput="applyWarrantyMonths()" class="hidden mt-2 w-full px-3 py-2 bg-white border border-slate-300 rounded-lg">
+          <input type="hidden" id="warrantyInput" value="Bảo hành chính hãng 24 tháng, xử lý sự cố trong vòng 24h">
         </div>
 
         <div>
@@ -676,7 +697,7 @@
         <div class="text-[10.5pt] leading-normal border-t border-gray-300 pt-3 mb-6">
           <p class="font-bold uppercase text-gray-900 mb-1" style="text-decoration: underline;">GHI CHÚ VÀ ĐIỀU KHOẢN THƯƠNG MẠI:</p>
           <ul class="list-disc pl-5 space-y-1 text-gray-800">
-            <li><strong>Phạm vi báo giá:</strong> Đơn giá trên đã bao gồm thuế VAT, trọn gói chi phí vật tư, vận chuyển và thi công lắp đặt hoàn thiện tại địa chỉ công trình.</li>
+            <li><strong>Phạm vi báo giá:</strong> Chỉ bao gồm các hạng mục được liệt kê trong bảng báo giá; vật tư điện, vận chuyển và thi công áp dụng khi được lựa chọn. Thuế VAT được thể hiện ở phần tổng cộng.</li>
             <li><strong>Thời gian thi công:</strong> <span id="pv_deliveryTime">05 - 07 ngày làm việc</span> kể từ khi nhận đủ tạm ứng và mặt bằng thi công sẵn sàng.</li>
             <li><strong>Chính sách bảo hành:</strong> <span id="pv_warranty">Bảo hành chính hãng 24 tháng</span>. Đội ngũ kỹ thuật hỗ trợ khắc phục sự cố trong vòng 24 giờ kể từ khi nhận thông báo.</li>
             <li><strong>Phương thức thanh toán:</strong> <span id="pv_paymentTerms">Tạm ứng 50% khi ký hợp đồng, 50% còn lại thanh toán ngay sau khi hoàn thành nghiệm thu bàn giao</span>.</li>
@@ -915,6 +936,114 @@
         }
       ]
     };
+
+
+    // --- TÙY CHỌN CHI PHÍ: giữ giá theo từng đơn hàng, không tự phân bổ giá điện ---
+    const optionalCostIds = ['grp_II', 'grp_III', 'grp_VI'];
+    function normalizeOptionalGroups() {
+      quotationData.groups.forEach(g => {
+        if (!optionalCostIds.includes(g.id)) return;
+        if (g.enabled === undefined) g.enabled = g.id !== 'grp_III';
+        if (g.id === 'grp_III' && !g.electricalNormalized) {
+          g.items = [
+            {stt:'1', name:'Dây điện', model:'Dây điện', brand:'', unit:'Gói', qty:1, price:0, total:0},
+            {stt:'2', name:'Dây tín hiệu CAT6/CAT5e chuyên dụng', model:'CAT6/CAT5e chuyên dụng', brand:'', unit:'Gói', qty:1, price:0, total:0}
+          ];
+          // Giá gói điện cũ không thể tự chia chính xác cho hai loại dây.
+          g.electricalNormalized = true;
+          g.enabled = false;
+        }
+      });
+    }
+    function captureOptionalGroups() {
+      normalizeOptionalGroups();
+      const data = {};
+      quotationData.groups.forEach(g => {
+        if (optionalCostIds.includes(g.id)) data[g.id] = {
+          enabled: g.enabled !== false, prices: g.items.map(it => Number(it.price)||0)
+        };
+      });
+      return data;
+    }
+    function restoreOptionalGroups(saved) {
+      normalizeOptionalGroups();
+      quotationData.groups.forEach(g => {
+        if (!saved[g.id]) return;
+        g.enabled = saved[g.id].enabled;
+        g.items.forEach((it,i) => {
+          if (saved[g.id].prices[i] !== undefined) {
+            it.price = saved[g.id].prices[i]; it.total = (Number(it.qty)||0)*it.price;
+          }
+        });
+      });
+    }
+    function renderOptionalCosts() {
+      const host = document.getElementById('optionalCostsList');
+      if (!host) return;
+      const labels = {
+        grp_II:'Hệ thống khung và gia cố',
+        grp_III:'Hệ thống điện',
+        grp_VI:'Vận chuyển, thi công và lắp đặt'
+      };
+      const cards = optionalCostIds.map(id => {
+        const g = quotationData.groups.find(x => x.id === id);
+        if (!g) return '';
+        const enabled = g.enabled !== false;
+        return `<div class="bg-white rounded-lg border border-slate-200 p-3">
+          <label class="flex items-center gap-2 text-xs font-bold text-slate-800 mb-2">
+            <input type="checkbox" ${enabled?'checked':''} onchange="toggleOptionalGroup('${id}', this.checked)" class="accent-red-700 h-4 w-4">
+            ${labels[id]}
+          </label>
+          ${g.items.map((it,i)=>`<label class="block text-xs text-slate-600 mt-2">
+            ${escapeHtml(it.name.split('\\n')[0])} — Đơn giá (VNĐ/${escapeHtml(it.unit)})
+            <input type="number" min="0" step="1000" value="${Number(it.price)>0 ? Number(it.price) : ''}"
+              placeholder="Nhập giá" onchange="updateOptionalPrice('${id}',${i},this.value)"
+              class="mt-1 w-full px-2 py-2 bg-white border border-slate-300 rounded-lg text-slate-900">
+          </label>`).join('')}
+          ${id==='grp_III' ? '<p class="text-[11px] text-amber-700 mt-2">Không gồm nguồn động lực; nhập riêng giá hai loại dây.</p>' : ''}
+        </div>`;
+      });
+      host.innerHTML = cards.filter(Boolean).join('') || '<p class="text-xs text-slate-500">Mẫu này không có nhóm chi phí tùy chọn.</p>';
+    }
+    function toggleOptionalGroup(id,enabled) {
+      const g = quotationData.groups.find(x=>x.id===id);
+      if (!g) return;
+      g.enabled = enabled;
+      if (enabled && g.items.some(it=>!Number(it.price))) showNotification('Có hạng mục chưa nhập đơn giá; cần kiểm tra trước khi phát hành.', 'warning');
+      renderEditorTable(); calculateQuotationTotals();
+    }
+    function updateOptionalPrice(id,i,value) {
+      const g = quotationData.groups.find(x=>x.id===id);
+      if (!g || !g.items[i]) return;
+      const price = value === '' ? 0 : Number(value);
+      if (!Number.isFinite(price) || price<0) { showNotification('Đơn giá phải là số không âm.', 'warning'); return; }
+      g.items[i].price = price;
+      g.items[i].total = (Number(g.items[i].qty)||0)*price;
+      renderEditorTable(); calculateQuotationTotals();
+    }
+    function applyWarrantyMonths() {
+      const select = document.getElementById('warrantyMonths');
+      const custom = document.getElementById('warrantyCustomMonths');
+      if (!select || !custom) return;
+      const other = select.value === 'other';
+      custom.classList.toggle('hidden', !other);
+      const months = other ? Number(custom.value) : Number(select.value);
+      if (!Number.isInteger(months) || months<1 || months>120) return;
+      document.getElementById('warrantyInput').value = 'Bảo hành chính hãng '+months+' tháng, xử lý sự cố trong vòng 24h';
+      quotationData.groups.forEach(g=>{
+        if (g.id==='grp_I') g.title = g.title.replace(/\\(BẢO HÀNH \\d+ THÁNG\\)/i,'(BẢO HÀNH '+months+' THÁNG)');
+      });
+      syncTermsToPreview(); renderEditorTable();
+    }
+    function syncWarrantySelectFromStored() {
+      const value = document.getElementById('warrantyInput').value;
+      const match = value.match(/(\\d+)\\s*tháng/i);
+      const months = match ? Number(match[1]) : 24;
+      const select = document.getElementById('warrantyMonths');
+      const custom = document.getElementById('warrantyCustomMonths');
+      if ([12,24,36,48,60].includes(months)) {select.value=String(months);custom.classList.add('hidden');}
+      else {select.value='other';custom.value=String(months);custom.classList.remove('hidden');}
+    }
 
     // --- 2. NUMBER TO VIETNAMESE WORDS CONVERTER ---
     function docSoTienBangChu(so) {
@@ -1161,6 +1290,7 @@
       }
 
       // Rebuild groups
+      const savedOptionalCosts = captureOptionalGroups();
       quotationData.groups = [
         {
           id: 'grp_I',
@@ -1312,6 +1442,7 @@
         }
       ];
 
+      restoreOptionalGroups(savedOptionalCosts);
       // Re-render UI
       renderEditorTable();
       calculateQuotationTotals();
@@ -1543,6 +1674,8 @@
 
     // --- 6. RENDER EDITABLE TABLE & LIVE PREVIEW ---
     function renderEditorTable() {
+      normalizeOptionalGroups();
+      renderOptionalCosts();
       const tbody = document.getElementById('editorTableBody');
       const pvBody = document.getElementById('pv_tableBody');
       let editorHtml = '';
@@ -1551,6 +1684,7 @@
       let overallItemIndex = 1;
 
       quotationData.groups.forEach((group, gIdx) => {
+        if (group.enabled === false) return;
         // --- EDITOR GROUP HEADER ---
         editorHtml += `
           <tr class="bg-slate-100 font-bold text-slate-800 border-t-2 border-slate-300">
@@ -1745,6 +1879,7 @@
     function calculateQuotationTotals() {
       let subTotal = 0;
       quotationData.groups.forEach(g => {
+        if (g.enabled === false) return;
         g.items.forEach(item => {
           subTotal += (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
         });
@@ -1878,6 +2013,17 @@
 
     // 9.3 Export to Excel (.xlsx) using SheetJS
     function exportToExcel() {
+      if (typeof XLSX === 'undefined') {
+        if (document.getElementById('hacoExcelLibraryRetry')) return;
+        const script = document.createElement('script');
+        script.id='hacoExcelLibraryRetry';
+        script.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+        script.onload=()=>{script.remove();exportToExcel();};
+        script.onerror=()=>{script.remove();showNotification('Không thể tải thư viện tạo Excel. Kiểm tra kết nối Internet/CDN.', 'warning');};
+        document.head.appendChild(script);
+        showNotification('Đang tải thư viện xuất Excel…', 'info');
+        return;
+      }
       const wb = XLSX.utils.book_new();
       const wsData = [
         ['CÔNG TY CỔ PHẦN CÔNG NGHỆ HACO VIỆT NAM'],
@@ -1894,7 +2040,7 @@
       ];
 
       let itemCounter = 1;
-      quotationData.groups.forEach(g => {
+      quotationData.groups.filter(g=>g.enabled!==false).forEach(g => {
         wsData.push([g.code, g.title, '', '', '', '', '', '']);
         g.items.forEach(item => {
           wsData.push([
@@ -1911,7 +2057,7 @@
       });
 
       // Totals
-      const subTotal = quotationData.groups.reduce((acc, g) => acc + g.items.reduce((sum, it) => sum + it.total, 0), 0);
+      const subTotal = quotationData.groups.filter(g=>g.enabled!==false).reduce((acc, g) => acc + g.items.reduce((sum, it) => sum + (Number(it.qty)||0)*(Number(it.price)||0), 0), 0);
       const vatRate = quotationData.meta.vatPercent || 0;
       const discount = quotationData.meta.discount || 0;
       const vatAmount = Math.round((subTotal - discount) * (vatRate / 100));
@@ -1962,7 +2108,7 @@
         totalAmount: total,
         totalAmountWords: docSoTienBangChu(total),
         projectName: quotationData.groups[0] ? quotationData.groups[0].title : 'Cung cấp và lắp đặt màn hình LED',
-        items: quotationData.groups
+        items: quotationData.groups.filter(g=>g.enabled!==false)
       };
 
       localStorage.setItem('HACO_PENDING_CONTRACT_DATA', JSON.stringify(contractPayload));
@@ -2077,6 +2223,7 @@
         if (found.meta.terms) {
           document.getElementById('deliveryTimeInput').value = found.meta.terms.deliveryTime || '';
           document.getElementById('warrantyInput').value = found.meta.terms.warranty || '';
+          syncWarrantySelectFromStored();
           document.getElementById('paymentTermsInput').value = found.meta.terms.payment || '';
         }
 
@@ -2141,6 +2288,7 @@
       calculateLedDimensions();
       syncCustomerInfo();
       syncTermsToPreview();
+      syncWarrantySelectFromStored();
       renderEditorTable();
       calculateQuotationTotals();
       updateHistoryCount();
