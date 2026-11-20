@@ -1,0 +1,2150 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HACOLED - Hệ Thống Tạo Báo Giá Màn Hình LED & Thiết Bị Tự Động</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23b91c1c'/><text x='50%' y='65%' font-size='50' font-weight='900' fill='white' text-anchor='middle'>H</text></svg>">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            haco: {
+              50: '#fef2f2',
+              100: '#fee2e2',
+              500: '#ef4444',
+              600: '#dc2626',
+              700: '#b91c1c',
+              800: '#991b1b',
+              900: '#7f1d1d',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700;800&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+    body {
+      font-family: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f1f5f9;
+      color: #1e293b;
+    }
+
+    /* Print & A4 Preview Formatting */
+    .a4-page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 18mm 15mm 20mm 15mm;
+      margin: 0 auto;
+      background: white;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      font-family: 'Tinos', 'Times New Roman', serif;
+      font-size: 13pt;
+      line-height: 1.4;
+      color: #000;
+      position: relative;
+      box-sizing: border-box;
+    }
+
+    @media print {
+      body {
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .a4-page {
+        width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 12mm 10mm !important;
+        box-shadow: none !important;
+        border: none !important;
+        page-break-after: auto;
+      }
+      @page {
+        size: A4;
+        margin: 10mm 10mm 10mm 10mm;
+      }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    .badge-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .5; }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- TOP HEADER -->
+  <header class="no-print bg-slate-900 text-white sticky top-0 z-40 border-b border-slate-800 shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo & Brand -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-800 flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-red-900/30">
+          H
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-300 bg-clip-text text-transparent">HACOLED</span>
+            <span class="text-[10px] font-semibold bg-red-600/30 text-red-300 px-2 py-0.5 rounded border border-red-500/30 uppercase tracking-wider">Báo Giá Tự Động</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Công ty Cổ phần Công nghệ HACO Việt Nam</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Preset Templates Selector -->
+        <div class="hidden md:flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-lg border border-slate-700 text-xs">
+          <button onclick="switchCategory('led_indoor')" id="tab_led_indoor" class="px-2.5 py-1.5 rounded-md font-medium text-white bg-red-700 shadow transition-all">
+            <i class="fa-solid fa-tv mr-1 text-red-200"></i> LED Trong nhà
+          </button>
+          <button onclick="switchCategory('led_outdoor')" id="tab_led_outdoor" class="px-2.5 py-1.5 rounded-md font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all">
+            <i class="fa-solid fa-sun mr-1 text-amber-400"></i> LED Ngoài trời
+          </button>
+          <button onclick="switchCategory('lcd_videowall')" id="tab_lcd_videowall" class="px-2.5 py-1.5 rounded-md font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all">
+            <i class="fa-solid fa-border-all mr-1 text-blue-400"></i> Ghép LCD
+          </button>
+          <button onclick="switchCategory('interactive')" id="tab_interactive" class="px-2.5 py-1.5 rounded-md font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all">
+            <i class="fa-solid fa-hand-pointer mr-1 text-emerald-400"></i> Tương tác
+          </button>
+          <button onclick="switchCategory('repair')" id="tab_repair" class="px-2.5 py-1.5 rounded-md font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all">
+            <i class="fa-solid fa-wrench mr-1 text-orange-400"></i> Sửa chữa
+          </button>
+        </div>
+
+        <!-- History / Saved -->
+        <button onclick="openHistoryModal()" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-folder-open text-amber-400"></i>
+          <span class="hidden sm:inline">Quản lý</span> (<span id="savedCount">0</span>)
+        </button>
+
+        <!-- Save button -->
+        <button onclick="saveCurrentQuotation()" class="px-3 py-1.5 text-xs bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg font-medium flex items-center gap-1.5 shadow transition">
+          <i class="fa-solid fa-floppy-disk"></i>
+          <span class="hidden sm:inline">Lưu</span>
+        </button>
+
+        <!-- Export Dropdown -->
+        <div class="relative group">
+          <button class="px-3.5 py-1.5 text-xs bg-red-700 hover:bg-red-600 text-white rounded-lg font-semibold flex items-center gap-2 shadow-lg shadow-red-900/30 transition">
+            <i class="fa-solid fa-file-export"></i>
+            <span>Xuất Báo Giá</span>
+            <i class="fa-solid fa-chevron-down text-[10px]"></i>
+          </button>
+          <div class="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 py-1.5 hidden group-hover:block z-50 text-slate-700 text-xs font-medium">
+            <button onclick="printQuotation()" class="w-full text-left px-3.5 py-2 hover:bg-slate-100 flex items-center gap-2.5">
+              <i class="fa-solid fa-print text-red-600 w-4"></i> In ấn / Lưu PDF A4
+            </button>
+            <button onclick="exportToWord()" class="w-full text-left px-3.5 py-2 hover:bg-slate-100 flex items-center gap-2.5">
+              <i class="fa-solid fa-file-word text-blue-600 w-4"></i> Xuất File Word (.doc)
+            </button>
+            <button onclick="exportToExcel()" class="w-full text-left px-3.5 py-2 hover:bg-slate-100 flex items-center gap-2.5">
+              <i class="fa-solid fa-file-excel text-emerald-600 w-4"></i> Xuất File Excel (.xlsx)
+            </button>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button onclick="sendToContractApp()" class="w-full text-left px-3.5 py-2 hover:bg-red-50 text-red-700 flex items-center gap-2.5 font-semibold">
+              <i class="fa-solid fa-file-contract text-red-600 w-4"></i> Tạo Hợp Đồng HACO
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+    <!-- TOP SECTION: DYNAMIC MARKET CALCULATOR (CÔNG CỤ TÍNH GIÁ BIẾN ĐỘNG THỊ TRƯỜNG) -->
+    <section id="calculatorSection" class="no-print bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden transition-all duration-300">
+      
+      <!-- Calculator Header -->
+      <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-red-950 px-6 py-4 text-white flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-red-600 flex items-center justify-center text-white shadow">
+            <i class="fa-solid fa-calculator text-base"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold text-base tracking-wide">BỘ TÍNH TOÁN CẤU HÌNH & TÍNH GIÁ BÁN TỪ GIÁ MODULE</h2>
+              <span class="text-[10px] bg-amber-400 text-slate-900 font-bold px-2 py-0.5 rounded uppercase">Dynamic Pricing</span>
+            </div>
+            <p class="text-xs text-slate-300 mt-0.5">Nhập kích thước & giá module thị trường &rarr; Bấm "Cập nhật giá bán" để hệ thống tự động bóc tách vật tư và tính giá hoàn chỉnh</p>
+          </div>
+        </div>
+
+        <button onclick="toggleCalculatorDetails()" class="text-xs text-slate-300 hover:text-white flex items-center gap-1.5 py-1 px-3 rounded-lg bg-slate-800/80 border border-slate-700">
+          <span id="toggleCalcText">Thu gọn công cụ</span>
+          <i id="toggleCalcIcon" class="fa-solid fa-chevron-up text-[10px]"></i>
+        </button>
+      </div>
+
+      <!-- Calculator Body -->
+      <div id="calculatorBody" class="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-50/50">
+
+        <!-- Column 1: Kích thước & Loại màn hình (5 Cols) -->
+        <div class="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+              <i class="fa-solid fa-ruler-combined text-red-600"></i> 1. Thông số Màn hình LED
+            </span>
+            <span class="text-[11px] text-slate-400 font-medium">Kích thước vật lý</span>
+          </div>
+
+          <!-- Pixel Pitch Selector -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Loại Màn hình (Pixel Pitch):</label>
+              <select id="ledPitchSelect" onchange="onPitchChange()" class="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+                <optgroup label="Màn hình Trong nhà (Indoor)">
+                  <option value="P1.25" data-w="320" data-h="160" data-pw="256" data-ph="128" data-brand="Qiangli/GKGD">P1.25 Trong nhà (320x160mm)</option>
+                  <option value="P1.53" data-w="320" data-h="160" data-pw="208" data-ph="104" data-brand="Qiangli/GKGD">P1.53 Trong nhà (320x160mm)</option>
+                  <option value="P1.86" selected data-w="320" data-h="160" data-pw="172" data-ph="86" data-brand="Qiangli/GKGD">P1.86 Trong nhà (320x160mm)</option>
+                  <option value="P2.0" data-w="320" data-h="160" data-pw="160" data-ph="80" data-brand="Qiangli/GKGD">P2.0 Trong nhà (320x160mm)</option>
+                  <option value="P2.5" data-w="320" data-h="160" data-pw="128" data-ph="64" data-brand="Qiangli/GKGD">P2.5 Trong nhà (320x160mm)</option>
+                  <option value="P3.0" data-w="192" data-h="192" data-pw="64" data-ph="64" data-brand="Qiangli/GKGD">P3.0 Trong nhà (192x192mm)</option>
+                  <option value="P4.0" data-w="320" data-h="160" data-pw="80" data-ph="40" data-brand="Qiangli/GKGD">P4.0 Trong nhà (320x160mm)</option>
+                </optgroup>
+                <optgroup label="Màn hình Ngoài trời (Outdoor - IP65)">
+                  <option value="P2.5_OUT" data-w="320" data-h="160" data-pw="128" data-ph="64" data-brand="Qiangli/GKGD">P2.5 Ngoài trời (320x160mm)</option>
+                  <option value="P3.0_OUT" data-w="192" data-h="192" data-pw="64" data-ph="64" data-brand="Qiangli/GKGD">P3.0 Ngoài trời (192x192mm)</option>
+                  <option value="P4.0_OUT" data-w="320" data-h="160" data-pw="80" data-ph="40" data-brand="Qiangli/GKGD">P4.0 Ngoài trời (320x160mm)</option>
+                  <option value="P5.0_OUT" data-w="320" data-h="160" data-pw="64" data-ph="32" data-brand="Qiangli/GKGD">P5.0 Ngoài trời (320x160mm)</option>
+                  <option value="P6.0_OUT" data-w="192" data-h="192" data-pw="32" data-ph="32" data-brand="Qiangli/GKGD">P6.0 Ngoài trời (192x192mm)</option>
+                  <option value="P10_OUT" data-w="320" data-h="160" data-pw="32" data-ph="16" data-brand="Qiangli/GKGD">P10 Ngoài trời (320x160mm)</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Thương hiệu / Model:</label>
+              <input type="text" id="moduleModelInput" value="Q1.8 Pro - Qiangli" class="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+            </div>
+          </div>
+
+          <!-- Kích thước nhập vào -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Chiều Rộng dự kiến (mm):</label>
+              <div class="relative">
+                <input type="number" id="targetWidthInput" value="3520" step="10" oninput="calculateLedDimensions()" class="w-full text-xs font-bold px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none pr-10">
+                <span class="absolute right-3 top-2 text-[11px] font-semibold text-slate-400">mm</span>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Chiều Cao dự kiến (mm):</label>
+              <div class="relative">
+                <input type="number" id="targetHeightInput" value="1920" step="10" oninput="calculateLedDimensions()" class="w-full text-xs font-bold px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none pr-10">
+                <span class="absolute right-3 top-2 text-[11px] font-semibold text-slate-400">mm</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Aspect Presets -->
+          <div class="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span class="font-medium">Gợi ý tỷ lệ:</span>
+            <button onclick="setDimensionPreset(16, 9)" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition font-medium">Chuẩn 16:9</button>
+            <button onclick="setDimensionPreset(4, 3)" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition font-medium">Chuẩn 4:3</button>
+            <button onclick="setDimensionPreset(21, 9)" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded transition font-medium">Ultra-Wide 21:9</button>
+          </div>
+
+          <!-- Calculated Spec Result Badge -->
+          <div class="bg-red-50/60 rounded-xl p-3.5 border border-red-100 text-xs flex flex-col gap-1.5">
+            <div class="flex justify-between items-center text-slate-800 font-semibold">
+              <span>Kích thước thực tế:</span>
+              <span id="actualDimensionsBadge" class="text-red-700 font-bold">3,520 x 1,920 mm (6.76 m²)</span>
+            </div>
+            <div class="flex justify-between items-center text-slate-600">
+              <span>Ma trận Module:</span>
+              <span id="moduleMatrixBadge" class="font-medium text-slate-900">11 tấm ngang × 12 tấm dọc = <strong>132 tấm</strong></span>
+            </div>
+            <div class="flex justify-between items-center text-slate-600">
+              <span>Độ phân giải hiển thị:</span>
+              <span id="resolutionBadge" class="font-medium text-slate-900">1,892 × 1,032 px (~2.0 MP)</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Column 2: Giá Nhập & Tính Giá Bán (4 Cols) -->
+        <div class="lg:col-span-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col gap-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-2">
+              <i class="fa-solid fa-coins text-amber-500"></i> 2. Giá Module & Biên Lợi Nhuận
+            </span>
+            <span class="text-[11px] text-amber-600 font-bold">Giá biến động</span>
+          </div>
+
+          <!-- Giá Nhập Module -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-semibold text-slate-700">Giá nhập Module (VNĐ / tấm):</label>
+              <span class="text-[10px] text-slate-400">Giá nhập thị trường</span>
+            </div>
+            <div class="relative">
+              <input type="text" id="rawModuleCostInput" value="380,000" oninput="formatCurrencyInput(this); onPricingInputChange();" class="w-full text-sm font-bold text-slate-900 px-3 py-2 bg-amber-50/50 border border-amber-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none pr-12">
+              <span class="absolute right-3 top-2.5 text-xs font-bold text-amber-700">đ/tấm</span>
+            </div>
+          </div>
+
+          <!-- Hệ số Lợi Nhuận / Markup -->
+          <div>
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-semibold text-slate-700">Biên độ lợi nhuận (Markup %):</label>
+              <span id="markupPercentLabel" class="text-xs font-bold text-red-600">30%</span>
+            </div>
+            <input type="range" id="markupRange" min="5" max="80" value="30" step="1" oninput="onMarkupRangeChange(this.value)" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-600">
+            <div class="flex justify-between text-[10px] text-slate-400 mt-1">
+              <span>5% (Giá thợ/Đại lý)</span>
+              <span>30% (Tiêu chuẩn)</span>
+              <span>80% (Bán lẻ)</span>
+            </div>
+          </div>
+
+          <!-- Giá Bán Module tính được & Giá Màn Hình / m2 -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <span class="text-[11px] text-slate-500 block">Giá bán Module:</span>
+              <span id="calculatedModulePrice" class="text-xs font-bold text-slate-800">494,000 đ</span>
+            </div>
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <span class="text-[11px] text-slate-500 block">Quy ra đơn giá / m²:</span>
+              <span id="calculatedPricePerM2" class="text-xs font-bold text-red-700">9,648,000 đ</span>
+            </div>
+          </div>
+
+          <!-- Tùy chọn Phụ kiện Tự động -->
+          <div class="text-[11px] text-slate-600 space-y-1.5 pt-1 border-t border-slate-100">
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="autoCardCheck" checked class="rounded text-red-600 focus:ring-0">
+                <span>Tự động tính Card thu Colorlight</span>
+              </label>
+              <span id="calcCardCount" class="font-bold text-slate-700">12 card</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="autoPowerCheck" checked class="rounded text-red-600 focus:ring-0">
+                <span>Tự động tính Bộ nguồn 5V-60A</span>
+              </label>
+              <span id="calcPowerCount" class="font-bold text-slate-700">22 bộ</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <label class="flex items-center gap-1.5 cursor-pointer">
+                <input type="checkbox" id="autoSpareCheck" checked class="rounded text-red-600 focus:ring-0">
+                <span>Dự phòng 2% Module & Nguồn</span>
+              </label>
+              <span id="calcSpareCount" class="font-bold text-slate-700">3 module, 2 nguồn</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Column 3: Nút Hành động Cập nhật Giá (3 Cols) -->
+        <div class="lg:col-span-3 bg-gradient-to-br from-red-50 to-orange-50 p-5 rounded-xl border border-red-200 shadow-sm flex flex-col justify-between gap-4">
+          <div>
+            <span class="text-xs font-bold uppercase tracking-wider text-red-800 flex items-center gap-2 mb-2">
+              <i class="fa-solid fa-bolt text-red-600"></i> 3. Áp dụng vào bảng
+            </span>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              Bấm nút bên dưới để cập nhật lại toàn bộ hạng mục: Màn hình LED, Card thu, Nguồn, Khung sắt, Dây cáp, Linh kiện dự phòng, Nhân công và Bộ xử lý hình ảnh theo mức giá vừa nhập.
+            </p>
+          </div>
+
+          <!-- Big Action Button -->
+          <div class="space-y-2">
+            <button onclick="applyCalculatedPricingToQuotation()" class="w-full py-3.5 px-4 bg-gradient-to-r from-red-600 via-red-700 to-red-800 hover:from-red-700 hover:to-red-900 text-white rounded-xl font-bold text-sm shadow-lg shadow-red-700/30 flex items-center justify-center gap-2 transform active:scale-95 transition-all">
+              <i class="fa-solid fa-arrows-rotate text-base"></i>
+              <span>CẬP NHẬT GIÁ BÁN</span>
+            </button>
+            <p class="text-[10px] text-center text-slate-500">Mỗi khi giá thị trường thay đổi, nhập giá module và bấm nút này</p>
+          </div>
+
+          <div class="bg-white/80 p-3 rounded-lg border border-red-200/60 text-xs">
+            <div class="text-[11px] text-slate-500 mb-0.5">Ước tính giá trị sơ bộ:</div>
+            <div id="quickEstimateTotal" class="text-base font-extrabold text-red-700">125,800,000 đ</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- MIDDLE SECTION: QUOTATION METADATA & CUSTOMER INFO -->
+    <section class="no-print bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+        <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+          <i class="fa-solid fa-user-tie text-red-600"></i> Thông Tin Khách Hàng & Dự Án Báo Giá
+        </h3>
+        <span class="text-xs text-slate-400">Đồng bộ tức thì lên bản in A4</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Kính gửi (Người nhận):</label>
+          <input type="text" id="custContactName" value="Anh Nguyễn Văn A" oninput="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Tên Cơ quan / Đơn vị (Khách hàng):</label>
+          <input type="text" id="custCompanyName" value="CÔNG TY CỔ PHẦN TẬP ĐOÀN ĐẦU TƯ ABC" oninput="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none font-medium">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Số điện thoại liên hệ:</label>
+          <input type="text" id="custPhone" value="0988 123 456" oninput="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Email:</label>
+          <input type="email" id="custEmail" value="contact@tapdoanabc.vn" oninput="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+        </div>
+
+        <div class="lg:col-span-2">
+          <label class="block font-semibold text-slate-700 mb-1">Địa điểm thi công / Lắp đặt:</label>
+          <input type="text" id="custAddress" value="Tòa nhà ABC Tower, Số 88 Đường Cầu Giấy, Quận Cầu Giấy, Hà Nội" oninput="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Ngày lập báo giá:</label>
+          <input type="date" id="quoteDate" onchange="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Thời hạn hiệu lực:</label>
+          <input type="text" id="quoteValidity" value="30 ngày kể từ ngày báo giá" oninput="syncCustomerInfo()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:outline-none">
+        </div>
+      </div>
+    </section>
+
+    <!-- EDITOR TABLE SECTION: DETAILED ITEMS INLINE EDITOR -->
+    <section class="no-print bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-red-600"></i> Bảng Chi Tiết Hạng Mục Báo Giá
+          </h3>
+          <p class="text-xs text-slate-500 mt-0.5">Bạn có thể chỉnh sửa trực tiếp số lượng, đơn giá, nội dung hoặc thêm bớt các dòng bất kỳ lúc nào</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="addNewGroup()" class="px-3 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition flex items-center gap-1.5">
+            <i class="fa-solid fa-folder-plus text-slate-500"></i> Thêm Nhóm (I, II...)
+          </button>
+          <button onclick="addNewItem()" class="px-3 py-1.5 text-xs bg-red-50 hover:bg-red-100 text-red-700 rounded-lg font-semibold transition flex items-center gap-1.5">
+            <i class="fa-solid fa-plus-circle"></i> Thêm Dòng Thiết Bị
+          </button>
+        </div>
+      </div>
+
+      <!-- Editable Table Container -->
+      <div class="overflow-x-auto rounded-xl border border-slate-200">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-800 text-white font-semibold">
+              <th class="py-3 px-3 w-12 text-center">STT</th>
+              <th class="py-3 px-3 min-w-[260px]">Tên Hàng Hóa / Quy Cách Kỹ Thuật</th>
+              <th class="py-3 px-3 w-28">Ký Mã Hiệu (Model)</th>
+              <th class="py-3 px-3 w-28">Hãng / Nước SX</th>
+              <th class="py-3 px-3 w-16 text-center">ĐVT</th>
+              <th class="py-3 px-3 w-20 text-center">Số Lượng</th>
+              <th class="py-3 px-3 w-28 text-right">Đơn Giá (VNĐ)</th>
+              <th class="py-3 px-3 w-32 text-right">Thành Tiền (VNĐ)</th>
+              <th class="py-3 px-2 w-12 text-center">Xóa</th>
+            </tr>
+          </thead>
+          <tbody id="editorTableBody" class="divide-y divide-slate-200 bg-white">
+            <!-- Dynamic rows will be rendered here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Financial Calculation Bar -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+        <div>
+          <span class="block text-slate-500 font-medium">Tổng cộng trước thuế:</span>
+          <span id="subTotalDisplay" class="text-base font-bold text-slate-900">0 đ</span>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-slate-500 font-medium">Thuế GTGT (VAT):</span>
+            <select id="vatSelect" onchange="calculateQuotationTotals()" class="px-2 py-0.5 text-xs bg-white border border-slate-300 rounded font-semibold text-slate-700">
+              <option value="0">0% (Không VAT)</option>
+              <option value="8" selected>8% (Nghị định 72)</option>
+              <option value="10">10% (VAT Chuẩn)</option>
+            </select>
+          </div>
+          <span id="vatAmountDisplay" class="text-base font-bold text-slate-900">0 đ</span>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-slate-500 font-medium">Chiết khấu / Giảm trừ:</span>
+            <span class="text-[10px] text-slate-400">VNĐ</span>
+          </div>
+          <input type="text" id="discountInput" value="0" oninput="formatCurrencyInput(this); calculateQuotationTotals();" class="w-full px-2 py-1 bg-white border border-slate-300 rounded text-xs font-semibold text-right">
+        </div>
+
+        <div class="bg-red-50 p-3 rounded-lg border border-red-200">
+          <span class="block text-xs font-bold text-red-800 uppercase">TỔNG CỘNG THANH TOÁN:</span>
+          <span id="grandTotalDisplay" class="text-lg font-extrabold text-red-700">0 đ</span>
+        </div>
+      </div>
+
+      <!-- Money in Vietnamese Words -->
+      <div class="bg-amber-50/70 p-3 rounded-lg border border-amber-200 text-xs text-amber-950 flex items-center gap-2">
+        <i class="fa-solid fa-spell-check text-amber-600 text-base"></i>
+        <span>Bằng chữ: <strong id="amountInWordsDisplay" class="italic">Không đồng</strong></span>
+      </div>
+
+      <!-- Commercial Notes & Terms -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Thời gian thi công & lắp đặt:</label>
+          <input type="text" id="deliveryTimeInput" value="05 - 07 ngày làm việc kể từ khi nhận tạm ứng" oninput="syncTermsToPreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Chính sách bảo hành:</label>
+          <input type="text" id="warrantyInput" value="Bảo hành chính hãng 24 tháng, xử lý sự cố trong vòng 24h" oninput="syncTermsToPreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg">
+        </div>
+
+        <div>
+          <label class="block font-semibold text-slate-700 mb-1">Phương thức thanh toán:</label>
+          <input type="text" id="paymentTermsInput" value="Tạm ứng 50% khi ký HĐ, thanh toán 50% sau khi bàn giao nghiệm thu" oninput="syncTermsToPreview()" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg">
+        </div>
+      </div>
+
+    </section>
+
+    <!-- BOTTOM SECTION: A4 PRINT-READY PREVIEW (BẢN XEM TRƯỚC VĂN BẢN CHUẨN A4) -->
+    <section class="flex flex-col items-center gap-4 my-4">
+      <div class="no-print flex items-center justify-between w-full max-w-[210mm] px-2 text-xs text-slate-500 font-medium">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-file-invoice text-red-600"></i>
+          <span>Bản xem trước A4 (Live Preview) - Khổ chuẩn 210 x 297mm</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="printQuotation()" class="text-red-700 hover:underline font-semibold flex items-center gap-1">
+            <i class="fa-solid fa-print"></i> In nhanh
+          </button>
+        </div>
+      </div>
+
+      <!-- A4 DOCUMENT CONTAINER -->
+      <div id="quotationDoc" class="a4-page">
+        
+        <!-- HEADER: COMPANY INFO & LOGO -->
+        <div class="border-b-2 border-red-700 pb-3 mb-4">
+          <div class="flex justify-between items-start">
+            
+            <!-- Left: Company Info -->
+            <div class="flex-1 pr-4">
+              <div class="text-[14pt] font-bold text-red-700 uppercase tracking-tight" style="color: #b91c1c;">CÔNG TY CỔ PHẦN CÔNG NGHỆ HACO VIỆT NAM</div>
+              <div class="text-[9.5pt] leading-tight text-gray-800 mt-1">
+                <p><strong>Trụ sở:</strong> Ngách 57/92 Đường Quang Minh, Thôn Gia Thượng 2, Xã Quang Minh, Hà Nội</p>
+                <p><strong>VPGD Hà Nội:</strong> Tầng 4, Tòa Biệt thự Louis II, KĐT Louis City Đại Mỗ, Nam Từ Liêm, HN</p>
+                <p><strong>Chi nhánh TP.HCM:</strong> 12, G23, KDC Vĩnh Phú 2, P. Vĩnh Phú, Thuận An, Bình Dương / TP.HCM</p>
+                <p><strong>Hotline:</strong> 034 232 4488 - 0944 070 797 &nbsp;|&nbsp; <strong>Website:</strong> hacoled.com</p>
+                <p><strong>Mã số thuế:</strong> 0108701064 &nbsp;|&nbsp; <strong>STK:</strong> 1616.7777 - Techcombank (CN Hoàng Quốc Việt)</p>
+              </div>
+            </div>
+
+            <!-- Right: Logo Graphic -->
+            <div class="text-right flex flex-col items-end">
+              <div class="w-16 h-16 bg-red-700 rounded-xl flex items-center justify-center text-white font-extrabold text-3xl shadow">
+                H
+              </div>
+              <div class="text-[11pt] font-bold text-red-700 tracking-wider mt-1">HACOLED</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- DOCUMENT TITLE -->
+        <div class="text-center my-4">
+          <h1 class="text-[17pt] font-bold uppercase tracking-wide text-gray-900" style="margin: 0; padding: 0;">BẢNG BÁO GIÁ THIẾT BỊ VÀ THI CÔNG LẮP ĐẶT</h1>
+          <div class="text-[11pt] italic text-gray-600 mt-1">
+            Số: <span id="pv_quoteNumber">BG-2026/HACO-01</span> &nbsp;&nbsp;|&nbsp;&nbsp; 
+            Hà Nội, <span id="pv_quoteDate">ngày 20 tháng 11 năm 2026</span>
+          </div>
+        </div>
+
+        <!-- CUSTOMER GREETING & INFO -->
+        <div class="bg-gray-50/80 p-3 rounded border border-gray-200 text-[11pt] leading-relaxed mb-4">
+          <p style="margin: 2px 0;"><strong>Kính gửi:</strong> <span id="pv_custName" class="font-bold">Anh Nguyễn Văn A</span></p>
+          <p style="margin: 2px 0;"><strong>Đơn vị:</strong> <span id="pv_custCompany" class="font-bold text-gray-900">CÔNG TY CỔ PHẦN TẬP ĐOÀN ĐẦU TƯ ABC</span></p>
+          <p style="margin: 2px 0;"><strong>Địa chỉ thi công:</strong> <span id="pv_custAddress">Tòa nhà ABC Tower, Số 88 Đường Cầu Giấy, Hà Nội</span></p>
+          <div class="flex justify-between" style="margin: 2px 0;">
+            <span><strong>Điện thoại:</strong> <span id="pv_custPhone">0988 123 456</span></span>
+            <span><strong>Email:</strong> <span id="pv_custEmail">contact@tapdoanabc.vn</span></span>
+            <span><strong>Thời hạn báo giá:</strong> <span id="pv_quoteValidity">30 ngày</span></span>
+          </div>
+        </div>
+
+        <p class="text-[11pt] italic text-gray-700 mb-3 text-justify">
+          Công ty Cổ phần Công nghệ HACO Việt Nam xin trân trọng cảm ơn Quý khách hàng đã tin tưởng và quan tâm đến sản phẩm, dịch vụ của chúng tôi. Chúng tôi hân hạnh gửi tới Quý khách bảng báo giá chi tiết thiết bị và giải pháp thi công như sau:
+        </p>
+
+        <!-- QUOTATION TABLE PREVIEW -->
+        <div class="mb-4">
+          <table class="w-full border-collapse border border-black text-[10.5pt]" style="line-height: 1.35;">
+            <thead>
+              <tr class="bg-gray-100 font-bold text-center">
+                <th class="border border-black p-1.5 w-8">TT</th>
+                <th class="border border-black p-1.5 text-left">DANH MỤC HÀNG HÓA / QUY CÁCH KỸ THUẬT</th>
+                <th class="border border-black p-1.5 w-24">KÝ MÃ HIỆU</th>
+                <th class="border border-black p-1.5 w-24">HÃNG SX / XUẤT XỨ</th>
+                <th class="border border-black p-1.5 w-12">ĐVT</th>
+                <th class="border border-black p-1.5 w-14">SL</th>
+                <th class="border border-black p-1.5 w-24 text-right">ĐƠN GIÁ (VNĐ)</th>
+                <th class="border border-black p-1.5 w-28 text-right">THÀNH TIỀN (VNĐ)</th>
+              </tr>
+            </thead>
+            <tbody id="pv_tableBody">
+              <!-- Rendered items in A4 format -->
+            </tbody>
+            <tfoot>
+              <!-- SubTotal -->
+              <tr>
+                <td colspan="7" class="border border-black p-1.5 text-right font-bold">Tổng cộng tiền hàng trước thuế:</td>
+                <td id="pv_subTotal" class="border border-black p-1.5 text-right font-bold">0</td>
+              </tr>
+              <!-- VAT -->
+              <tr id="pv_vatRow">
+                <td colspan="7" class="border border-black p-1.5 text-right font-bold">Thuế GTGT (<span id="pv_vatPercent">8</span>%):</td>
+                <td id="pv_vatAmount" class="border border-black p-1.5 text-right font-bold">0</td>
+              </tr>
+              <!-- Discount -->
+              <tr id="pv_discountRow" style="display: none;">
+                <td colspan="7" class="border border-black p-1.5 text-right font-bold text-red-700">Chiết khấu / Giảm giá:</td>
+                <td id="pv_discountAmount" class="border border-black p-1.5 text-right font-bold text-red-700">0</td>
+              </tr>
+              <!-- Grand Total -->
+              <tr class="bg-gray-100">
+                <td colspan="7" class="border border-black p-2 text-right font-bold text-[11pt] uppercase">TỔNG CỘNG THANH TOÁN (ĐÃ BAO GỒM VAT):</td>
+                <td id="pv_grandTotal" class="border border-black p-2 text-right font-bold text-[11pt] text-red-800">0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- TOTAL IN WORDS -->
+        <div class="text-[11pt] mb-4">
+          <p><strong>Số tiền viết bằng chữ:</strong> <span id="pv_amountInWords" class="font-bold italic">Không đồng</span></p>
+        </div>
+
+        <!-- COMMERCIAL TERMS & NOTES -->
+        <div class="text-[10.5pt] leading-normal border-t border-gray-300 pt-3 mb-6">
+          <p class="font-bold uppercase text-gray-900 mb-1" style="text-decoration: underline;">GHI CHÚ VÀ ĐIỀU KHOẢN THƯƠNG MẠI:</p>
+          <ul class="list-disc pl-5 space-y-1 text-gray-800">
+            <li><strong>Phạm vi báo giá:</strong> Đơn giá trên đã bao gồm thuế VAT, trọn gói chi phí vật tư, vận chuyển và thi công lắp đặt hoàn thiện tại địa chỉ công trình.</li>
+            <li><strong>Thời gian thi công:</strong> <span id="pv_deliveryTime">05 - 07 ngày làm việc</span> kể từ khi nhận đủ tạm ứng và mặt bằng thi công sẵn sàng.</li>
+            <li><strong>Chính sách bảo hành:</strong> <span id="pv_warranty">Bảo hành chính hãng 24 tháng</span>. Đội ngũ kỹ thuật hỗ trợ khắc phục sự cố trong vòng 24 giờ kể từ khi nhận thông báo.</li>
+            <li><strong>Phương thức thanh toán:</strong> <span id="pv_paymentTerms">Tạm ứng 50% khi ký hợp đồng, 50% còn lại thanh toán ngay sau khi hoàn thành nghiệm thu bàn giao</span>.</li>
+            <li>Báo giá có giá trị trong vòng <span id="pv_validityDays">30 ngày</span> kể từ ngày phát hành. Sau thời gian này, giá có thể điều chỉnh tùy theo biến động linh kiện trên thị trường.</li>
+          </ul>
+        </div>
+
+        <!-- SIGNATURES BLOCK -->
+        <div class="grid grid-cols-2 text-center text-[11pt] mt-8 pt-4" style="page-break-inside: avoid;">
+          <div>
+            <p class="font-bold uppercase text-gray-800">ĐẠI DIỆN KHÁCH HÀNG</p>
+            <p class="italic text-[9pt] text-gray-500">(Ký, ghi rõ họ tên & đóng dấu nếu có)</p>
+            <div class="h-24"></div>
+            <p class="font-medium text-gray-700" id="pv_sigCustName">Anh Nguyễn Văn A</p>
+          </div>
+
+          <div>
+            <p class="font-bold uppercase text-red-700">ĐẠI DIỆN CÔNG TY CP CÔNG NGHỆ HACO VIỆT NAM</p>
+            <p class="italic text-[9pt] text-gray-500">(Ký, ghi rõ họ tên & đóng dấu)</p>
+            <div class="h-24 flex items-center justify-center">
+              <div class="text-red-700/30 text-5xl font-extrabold select-none rotate-[-12deg]">HACOLED</div>
+            </div>
+            <p class="font-bold text-gray-900">NGUYỄN VĂN THUẬN</p>
+            <p class="text-[9.5pt] text-gray-500">Giám Đốc Dự Án</p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODAL: SAVED QUOTATIONS MANAGEMENT (QUẢN LÝ LỊCH SỬ BÁO GIÁ) -->
+  <div id="historyModal" class="no-print fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-100 flex flex-col gap-4 max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-folder-open text-red-600 text-lg"></i>
+          <h3 class="font-bold text-base text-slate-800">Danh Sách Báo Giá Đã Lưu Trữ</h3>
+        </div>
+        <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-slate-700 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <input type="text" id="searchHistoryInput" oninput="renderHistoryList()" placeholder="Tìm theo tên khách hàng, số điện thoại, ngày..." class="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500">
+      </div>
+
+      <div id="historyListContainer" class="overflow-y-auto space-y-2 max-h-[50vh] pr-1">
+        <!-- Rendered history items -->
+      </div>
+
+      <div class="flex justify-between items-center pt-3 border-t border-slate-100 text-xs">
+        <button onclick="clearAllHistory()" class="text-red-600 hover:underline">Xóa tất cả lịch sử</button>
+        <button onclick="closeHistoryModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg font-medium">Đóng</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT CORE LOGIC -->
+  <script>
+    // --- 1. STATE DATA & APP INITIALIZATION ---
+    let currentCategory = 'led_indoor';
+
+    // State for quotation items
+    let quotationData = {
+      meta: {
+        quoteNumber: 'BG-' + new Date().getFullYear() + '/HACO-01',
+        quoteDate: new Date().toISOString().split('T')[0],
+        validity: '30 ngày kể từ ngày báo giá',
+        customer: {
+          contact: 'Anh Nguyễn Văn A',
+          company: 'CÔNG TY CỔ PHẦN TẬP ĐOÀN ĐẦU TƯ ABC',
+          phone: '0988 123 456',
+          email: 'contact@tapdoanabc.vn',
+          address: 'Tòa nhà ABC Tower, Số 88 Đường Cầu Giấy, Quận Cầu Giấy, Hà Nội'
+        },
+        terms: {
+          deliveryTime: '05 - 07 ngày làm việc kể từ khi nhận tạm ứng',
+          warranty: 'Bảo hành chính hãng 24 tháng, xử lý sự cố trong vòng 24h',
+          payment: 'Tạm ứng 50% khi ký HĐ, thanh toán 50% sau khi bàn giao nghiệm thu'
+        },
+        vatPercent: 8,
+        discount: 0
+      },
+      // Groups and detailed lines
+      groups: [
+        {
+          id: 'grp_I',
+          code: 'I',
+          title: 'HỆ THỐNG MÀN HÌNH LED P1.86 HIỂN THỊ TRONG NHÀ (BẢO HÀNH 24 THÁNG)',
+          subtitle: '- Kích thước hiển thị (RxC): 3,520 x 1,920 mm (Diện tích: 6.76 m²)\n- Độ phân giải hiển thị (RxC): 1,892 x 1,032 pixel (Chuẩn Full HD)',
+          items: [
+            {
+              stt: '1',
+              name: 'Module Màn hình LED P1.86 trong nhà\n- Công nghệ SMD1515, tần số quét ≥ 3840Hz\n- Độ sáng: ≥ 600 cd/m², góc nhìn 160°/160°\n- Lắp ráp dạng nam châm hít mặt trước bảo trì thuận tiện',
+              model: 'Q1.8 Pro',
+              brand: 'Qiangli / China',
+              unit: 'm2',
+              qty: 6.76,
+              price: 13500000,
+              total: 91260000
+            },
+            {
+              stt: '2',
+              name: 'Card thu tín hiệu điều khiển (Receiving Card)\n- Tần số làm tươi cao, hỗ trợ hiệu chuẩn màu sắc 16-bit\n- Tương thích hệ thống điều khiển Colorlight',
+              model: '5A-75E / i5A',
+              brand: 'Colorlight / China',
+              unit: 'Chiếc',
+              qty: 12,
+              price: 380000,
+              total: 4560000
+            },
+            {
+              stt: '3',
+              name: 'Bộ chuyển đổi nguồn điện DC 5V-60A (300W)\n- Hiệu suất chuyển đổi cao, quạt tản nhiệt êm ái\n- Bảo vệ quá áp, ngắn mạch',
+              model: 'A-300AB-5',
+              brand: 'Chuanglian / China',
+              unit: 'Chiếc',
+              qty: 22,
+              price: 260000,
+              total: 5720000
+            }
+          ]
+        },
+        {
+          id: 'grp_II',
+          code: 'II',
+          title: 'HỆ THỐNG KHUNG GIÀN GIA CỐ & ỐP VIỀN TRANG TRÍ',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Hệ thống khung sắt gia cố chịu lực:\n- Vật liệu: Thép hộp mạ kẽm Hoà Phát 20x40mm & 40x40mm\n- Gia công hàn liên kết, sơn chống gỉ mối hàn\n- Đảm bảo độ phẳng tuyệt đối cho màn hình',
+              model: 'Khung mạ kẽm',
+              brand: 'Việt Nam',
+              unit: 'm2',
+              qty: 6.76,
+              price: 850000,
+              total: 5746000
+            },
+            {
+              stt: '2',
+              name: 'Ốp viền trang trí xung quanh màn hình:\n- Vật liệu: Nhôm định hình chuyên dụng hoặc tấm Alu chống xước\n- Che kín mép cạnh, tăng tính thẩm mỹ sang trọng',
+              model: 'Nẹp Alu / Nhôm',
+              brand: 'Việt Nam',
+              unit: 'Mét dài',
+              qty: 10.88,
+              price: 180000,
+              total: 1958400
+            }
+          ]
+        },
+        {
+          id: 'grp_III',
+          code: 'III',
+          title: 'HỆ THỐNG ĐIỆN VÀ ĐƯỜNG TRUYỀN TÍN HIỆU',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Hệ thống dây điện nguồn chuyên dụng (Cadisun/Trần Phú), cáp mạng tín hiệu Cat5e/Cat6 Ugreen, cáp dẹt 16P, automat đóng cắt',
+              model: 'Gói vật tư điện',
+              brand: 'Việt Nam',
+              unit: 'Gói',
+              qty: 1,
+              price: 3500000,
+              total: 3500000
+            }
+          ]
+        },
+        {
+          id: 'grp_IV',
+          code: 'IV',
+          title: 'LINH KIỆN VẬT TƯ DỰ PHÒNG THEO TIÊU CHUẨN (SPARE PARTS)',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Tấm Module LED P1.86 dự phòng đồng lô sản xuất',
+              model: 'Q1.8 Pro',
+              brand: 'Qiangli / China',
+              unit: 'Tấm',
+              qty: 3,
+              price: 520000,
+              total: 1560000
+            },
+            {
+              stt: '2',
+              name: 'Bộ nguồn DC 5V-60A dự phòng',
+              model: 'A-300AB-5',
+              brand: 'Chuanglian / China',
+              unit: 'Chiếc',
+              qty: 2,
+              price: 260000,
+              total: 520000
+            }
+          ]
+        },
+        {
+          id: 'grp_V',
+          code: 'V',
+          title: 'BỘ XỬ LÝ HÌNH ẢNH CHUYÊN DỤNG (VIDEO PROCESSOR)',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Bộ xử lý hình ảnh All-in-one Video Processor:\n- Quản lý tối đa 2.6 triệu pixel, tích hợp Card phát bên trong\n- Cổng vào: HDMI, DVI, VGA, CVBS, USB phát video/ảnh trực tiếp\n- Chuyển đổi tín hiệu mượt mà, hỗ trợ phóng to thu nhỏ (Scaling)',
+              model: 'X4M / TU15 Pro',
+              brand: 'Colorlight / Novastar',
+              unit: 'Bộ',
+              qty: 1,
+              price: 9500000,
+              total: 9500000
+            }
+          ]
+        },
+        {
+          id: 'grp_VI',
+          code: 'VI',
+          title: 'CHI PHÍ VẬN CHUYỂN, NHÂN CÔNG LẮP ĐẶT & CHẠY THỬ BÀN GIAO',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Vận chuyển hàng hóa đến chân công trình, kỹ thuật viên cân chỉnh màn hình, test thông mạch, hiệu chuẩn màu sắc và bàn giao hướng dẫn sử dụng',
+              model: 'Trọn gói tại HN',
+              brand: 'HACOLED',
+              unit: 'Gói',
+              qty: 1,
+              price: 6500000,
+              total: 6500000
+            }
+          ]
+        }
+      ]
+    };
+
+    // --- 2. NUMBER TO VIETNAMESE WORDS CONVERTER ---
+    function docSoTienBangChu(so) {
+      if (!so || isNaN(so) || so <= 0) return 'Không đồng';
+      so = Math.round(so);
+      const ChuSo = [' không ', ' một ', ' hai ', ' ba ', ' bốn ', ' năm ', ' sáu ', ' bảy ', ' tám ', ' chín '];
+      const Tien = ['', ' nghìn', ' triệu', ' tỷ', ' nghìn tỷ', ' triệu tỷ'];
+
+      function docSo3ChuSo(baso) {
+        let tram = Math.floor(baso / 100);
+        let chuc = Math.floor((baso % 100) / 10);
+        let donvi = baso % 10;
+        let ketqua = '';
+
+        if (tram === 0 && chuc === 0 && donvi === 0) return '';
+        if (tram !== 0) {
+          ketqua += ChuSo[tram] + 'trăm ';
+          if (chuc === 0 && donvi !== 0) ketqua += 'linh ';
+        }
+        if (chuc !== 0 && chuc !== 1) {
+          ketqua += ChuSo[chuc] + 'mươi ';
+          if (chuc === 0 && donvi !== 0) ketqua += 'linh ';
+        }
+        if (chuc === 1) ketqua += 'mười ';
+        switch (donvi) {
+          case 1:
+            if (chuc !== 0 && chuc !== 1) ketqua += 'mốt ';
+            else ketqua += ChuSo[donvi];
+            break;
+          case 5:
+            if (chuc === 0) ketqua += ChuSo[donvi];
+            else ketqua += 'lăm ';
+            break;
+          default:
+            if (donvi !== 0) ketqua += ChuSo[donvi];
+            break;
+        }
+        return ketqua;
+      }
+
+      let s = so.toString();
+      let i = s.length;
+      let vitri = 0;
+      let kq = '';
+
+      while (i > 0) {
+        let sub = i >= 3 ? s.substr(i - 3, 3) : s.substr(0, i);
+        let baso = parseInt(sub);
+        i -= 3;
+        if (baso > 0) {
+          let str = docSo3ChuSo(baso);
+          kq = str + Tien[vitri] + kq;
+        }
+        vitri++;
+      }
+
+      kq = kq.trim();
+      kq = kq.replace(/\s+/g, ' ');
+      // Capitalize first letter
+      return kq.charAt(0).toUpperCase() + kq.slice(1) + ' đồng chẵn.';
+    }
+
+    function formatNumber(num) {
+      if (num === null || num === undefined || isNaN(num)) return '0';
+      return Math.round(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function parseFormattedNumber(str) {
+      if (!str) return 0;
+      return parseFloat(str.toString().replace(/,/g, '')) || 0;
+    }
+
+    function formatCurrencyInput(input) {
+      let val = parseFormattedNumber(input.value);
+      input.value = formatNumber(val);
+    }
+
+    // --- 3. DYNAMIC CALCULATOR ENGINE ---
+    function calculateLedDimensions() {
+      const select = document.getElementById('ledPitchSelect');
+      const opt = select.options[select.selectedIndex];
+      const modW = parseInt(opt.getAttribute('data-w')) || 320;
+      const modH = parseInt(opt.getAttribute('data-h')) || 160;
+      const pixelW = parseInt(opt.getAttribute('data-pw')) || 172;
+      const pixelH = parseInt(opt.getAttribute('data-ph')) || 86;
+
+      const targetW = parseFloat(document.getElementById('targetWidthInput').value) || 3520;
+      const targetH = parseFloat(document.getElementById('targetHeightInput').value) || 1920;
+
+      // Calculate number of modules
+      const cols = Math.round(targetW / modW) || 1;
+      const rows = Math.round(targetH / modH) || 1;
+      const totalModules = cols * rows;
+
+      // Actual dimensions
+      const actualW = cols * modW;
+      const actualH = rows * modH;
+      const actualArea = (actualW * actualH) / 1000000; // in m2
+
+      // Total pixels
+      const totalPixelW = cols * pixelW;
+      const totalPixelH = rows * pixelH;
+      const totalPixels = totalPixelW * totalPixelH;
+
+      // Update UI Badges
+      document.getElementById('actualDimensionsBadge').innerText = 
+        `${formatNumber(actualW)} x ${formatNumber(actualH)} mm (${actualArea.toFixed(2)} m²)`;
+
+      document.getElementById('moduleMatrixBadge').innerHTML = 
+        `${cols} tấm ngang × ${rows} tấm dọc = <strong>${totalModules} tấm</strong>`;
+
+      document.getElementById('resolutionBadge').innerText = 
+        `${formatNumber(totalPixelW)} × ${formatNumber(totalPixelH)} px (~${(totalPixels / 1000000).toFixed(2)} MP)`;
+
+      // Auto accessories estimates
+      // 1 Colorlight card usually drives ~256x512 or 131,072 to 262,144 pixels (approx 10-14 modules)
+      const cardCapacityPixels = 131072;
+      const neededCards = Math.max(1, Math.ceil(totalPixels / cardCapacityPixels));
+      document.getElementById('calcCardCount').innerText = `${neededCards} card`;
+
+      // Power supply: 1 power 5V-60A (300W) can drive ~6 modules P1.86 / P2, or ~5 modules P2.5, or ~4 modules P3/P4
+      let modulesPerPower = 6;
+      if (select.value.includes('OUT')) modulesPerPower = 4;
+      const neededPower = Math.max(1, Math.ceil(totalModules / modulesPerPower));
+      document.getElementById('calcPowerCount').innerText = `${neededPower} bộ`;
+
+      // Spare parts: 2-3% of total
+      const spareMod = Math.max(2, Math.round(totalModules * 0.02));
+      const sparePwr = Math.max(1, Math.round(neededPower * 0.05));
+      document.getElementById('calcSpareCount').innerText = `${spareMod} module, ${sparePwr} nguồn`;
+
+      onPricingInputChange();
+      return { actualW, actualH, actualArea, cols, rows, totalModules, totalPixelW, totalPixelH, neededCards, neededPower, spareMod, sparePwr };
+    }
+
+    function onPitchChange() {
+      const select = document.getElementById('ledPitchSelect');
+      const opt = select.options[select.selectedIndex];
+      const pitch = select.value;
+
+      // Default market cost estimates
+      let defaultCost = 380000;
+      let defaultModel = `Q${pitch.replace('_OUT', '')} Pro - Qiangli`;
+
+      if (pitch === 'P1.25') { defaultCost = 950000; defaultModel = 'Q1.25 Pro - Qiangli'; }
+      else if (pitch === 'P1.53') { defaultCost = 550000; defaultModel = 'Q1.53 Pro - Qiangli'; }
+      else if (pitch === 'P1.86') { defaultCost = 380000; defaultModel = 'Q1.8 Pro - Qiangli'; }
+      else if (pitch === 'P2.0') { defaultCost = 340000; defaultModel = 'Q2.0 Pro - Qiangli'; }
+      else if (pitch === 'P2.5') { defaultCost = 270000; defaultModel = 'Q2.5 Pro - Qiangli'; }
+      else if (pitch === 'P3.0') { defaultCost = 210000; defaultModel = 'Q3.0E - Qiangli'; }
+      else if (pitch === 'P4.0') { defaultCost = 180000; defaultModel = 'Q4.0E - Qiangli'; }
+      else if (pitch.includes('OUT')) { defaultCost = 380000; defaultModel = `${pitch.replace('_OUT', '')} Ngoài Trời IP65`; }
+
+      document.getElementById('rawModuleCostInput').value = formatNumber(defaultCost);
+      document.getElementById('moduleModelInput').value = defaultModel;
+
+      calculateLedDimensions();
+    }
+
+    function onMarkupRangeChange(val) {
+      document.getElementById('markupPercentLabel').innerText = val + '%';
+      onPricingInputChange();
+    }
+
+    function onPricingInputChange() {
+      const rawCost = parseFormattedNumber(document.getElementById('rawModuleCostInput').value) || 0;
+      const markup = parseFloat(document.getElementById('markupRange').value) || 30;
+
+      // Sale price of 1 module
+      const salePrice = rawCost * (1 + markup / 100);
+      document.getElementById('calculatedModulePrice').innerText = formatNumber(salePrice) + ' đ';
+
+      // Price per m2 (modules per m2 = 1 / 0.0512 = 19.53 modules/m2 for 320x160)
+      const select = document.getElementById('ledPitchSelect');
+      const opt = select.options[select.selectedIndex];
+      const modW = parseInt(opt.getAttribute('data-w')) || 320;
+      const modH = parseInt(opt.getAttribute('data-h')) || 160;
+      const modArea = (modW * modH) / 1000000;
+      const modulesPerM2 = 1 / modArea;
+      const pricePerM2 = salePrice * modulesPerM2;
+
+      document.getElementById('calculatedPricePerM2').innerText = formatNumber(pricePerM2) + ' đ';
+
+      // Quick estimate total
+      const area = (parseFloat(document.getElementById('targetWidthInput').value) * parseFloat(document.getElementById('targetHeightInput').value)) / 1000000;
+      const screenCost = area * pricePerM2;
+      // Add roughly 35% for card, power, frame, processor and labor
+      const totalEst = screenCost * 1.35;
+      document.getElementById('quickEstimateTotal').innerText = formatNumber(totalEst) + ' đ';
+    }
+
+    function setDimensionPreset(ratioW, ratioH) {
+      const currentArea = (parseFloat(document.getElementById('targetWidthInput').value) * parseFloat(document.getElementById('targetHeightInput').value)) / 1000000 || 6.76;
+      // Compute W & H in mm matching the area and ratio
+      // Area = W * H, W / H = ratioW / ratioH => H = sqrt(Area * 10^6 * ratioH / ratioW)
+      const h = Math.round(Math.sqrt((currentArea * 1000000 * ratioH) / ratioW) / 10) * 10;
+      const w = Math.round((h * ratioW) / ratioH / 10) * 10;
+
+      document.getElementById('targetWidthInput').value = w;
+      document.getElementById('targetHeightInput').value = h;
+      calculateLedDimensions();
+    }
+
+    function toggleCalculatorDetails() {
+      const body = document.getElementById('calculatorBody');
+      const isHidden = body.classList.toggle('hidden');
+      document.getElementById('toggleCalcText').innerText = isHidden ? 'Mở rộng công cụ tính' : 'Thu gọn công cụ';
+      document.getElementById('toggleCalcIcon').className = isHidden ? 'fa-solid fa-chevron-down text-[10px]' : 'fa-solid fa-chevron-up text-[10px]';
+    }
+
+    // --- 4. APPLY CALCULATED PRICING TO QUOTATION TABLE ---
+    function applyCalculatedPricingToQuotation() {
+      const specs = calculateLedDimensions();
+      const select = document.getElementById('ledPitchSelect');
+      const pitchName = select.options[select.selectedIndex].text.split(' (')[0];
+      const moduleModel = document.getElementById('moduleModelInput').value;
+      const rawCost = parseFormattedNumber(document.getElementById('rawModuleCostInput').value) || 0;
+      const markup = parseFloat(document.getElementById('markupRange').value) || 30;
+      const saleModulePrice = rawCost * (1 + markup / 100);
+
+      // Price per m2 for module
+      const opt = select.options[select.selectedIndex];
+      const modW = parseInt(opt.getAttribute('data-w')) || 320;
+      const modH = parseInt(opt.getAttribute('data-h')) || 160;
+      const modArea = (modW * modH) / 1000000;
+      const pricePerM2 = Math.round(saleModulePrice / modArea);
+
+      // Select Video Processor based on resolution
+      let processorModel = 'X4M Colorlight';
+      let processorPrice = 9500000;
+      const totalPixels = specs.totalPixelW * specs.totalPixelH;
+      if (totalPixels <= 1300000) {
+        processorModel = 'X2M / TU15 Pro Colorlight';
+        processorPrice = 7500000;
+      } else if (totalPixels <= 2600000) {
+        processorModel = 'X4M / VX400 All-in-one';
+        processorPrice = 9500000;
+      } else if (totalPixels <= 4000000) {
+        processorModel = 'VX600 / X8M Video Processor';
+        processorPrice = 16500000;
+      } else {
+        processorModel = 'VX1000 4K Ultra HD Video Processor';
+        processorPrice = 28000000;
+      }
+
+      // Rebuild groups
+      quotationData.groups = [
+        {
+          id: 'grp_I',
+          code: 'I',
+          title: `HỆ THỐNG MÀN HÌNH LED ${pitchName.toUpperCase()} (BẢO HÀNH 24 THÁNG)`,
+          subtitle: `- Kích thước hiển thị (RxC): ${formatNumber(specs.actualW)} x ${formatNumber(specs.actualH)} mm (Diện tích: ${specs.actualArea.toFixed(2)} m²)\n- Độ phân giải hiển thị (RxC): ${formatNumber(specs.totalPixelW)} x ${formatNumber(specs.totalPixelH)} pixel`,
+          items: [
+            {
+              stt: '1',
+              name: `Màn hình LED ${pitchName} lắp dạng ráp module gắn nam châm hít mặt trước bảo trì thuận tiện\n- Kích thước module: ${modW}x${modH}mm\n- Tần số làm tươi: ≥ 3840Hz, độ sáng cao`,
+              model: moduleModel,
+              brand: 'Qiangli / China',
+              unit: 'm2',
+              qty: parseFloat(specs.actualArea.toFixed(2)),
+              price: pricePerM2,
+              total: Math.round(specs.actualArea * pricePerM2)
+            },
+            {
+              stt: '2',
+              name: 'Card nhận tín hiệu điều khiển màn hình LED (Receiving Card)\n- Tần số quét cao, hỗ trợ hiệu chuẩn thang màu sắc 16-bit',
+              model: '5A-75E / i5A',
+              brand: 'Colorlight / China',
+              unit: 'Chiếc',
+              qty: specs.neededCards,
+              price: 380000,
+              total: specs.neededCards * 380000
+            },
+            {
+              stt: '3',
+              name: 'Bộ chuyển đổi nguồn điện DC 5V-60A (300W)\n- Chống quá tải, chống đoản mạch, quạt tản nhiệt thông minh',
+              model: 'A-300AB-5',
+              brand: 'Chuanglian / China',
+              unit: 'Chiếc',
+              qty: specs.neededPower,
+              price: 260000,
+              total: specs.neededPower * 260000
+            }
+          ]
+        },
+        {
+          id: 'grp_II',
+          code: 'II',
+          title: 'HỆ THỐNG KHUNG GIÀN GIA CỐ & ỐP VIỀN TRANG TRÍ',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Hệ thống khung sắt chịu lực gia cố màn hình:\n- Vật liệu: Thép hộp mạ kẽm Hoà Phát 20x40mm & 40x40mm\n- Đảm bảo độ phẳng tuyệt đối và độ vững chãi',
+              model: 'Khung mạ kẽm',
+              brand: 'Việt Nam',
+              unit: 'm2',
+              qty: parseFloat(specs.actualArea.toFixed(2)),
+              price: 850000,
+              total: Math.round(specs.actualArea * 850000)
+            },
+            {
+              stt: '2',
+              name: 'Ốp viền trang trí xung quanh màn hình:\n- Vật liệu: Tấm Alu bóng hoặc viền nhôm định hình chuyên dụng\n- Tăng tính thẩm mỹ tinh tế cho không gian',
+              model: 'Nẹp Alu / Nhôm',
+              brand: 'Việt Nam',
+              unit: 'Mét dài',
+              qty: parseFloat(((specs.actualW + specs.actualH) * 2 / 1000).toFixed(2)),
+              price: 180000,
+              total: Math.round(((specs.actualW + specs.actualH) * 2 / 1000) * 180000)
+            }
+          ]
+        },
+        {
+          id: 'grp_III',
+          code: 'III',
+          title: 'HỆ THỐNG ĐIỆN VÀ ĐƯỜNG TRUYỀN TÍN HIỆU CHUYÊN DỤNG',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Hệ dây điện nguồn cấp (Cadisun/Trần Phú), cáp mạng tín hiệu Cat5e/Cat6 bọc kim chống nhiễu, cáp dẹt 16P, ống ghen luồn dây và tủ điện aptomat',
+              model: 'Gói vật tư điện',
+              brand: 'Việt Nam',
+              unit: 'Gói',
+              qty: 1,
+              price: Math.max(3000000, Math.round(specs.actualArea * 450000)),
+              total: Math.max(3000000, Math.round(specs.actualArea * 450000))
+            }
+          ]
+        },
+        {
+          id: 'grp_IV',
+          code: 'IV',
+          title: 'VẬT TƯ LINH KIỆN DỰ PHÒNG CHÍNH HÃNG (SPARE PARTS)',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: `Module LED ${pitchName} dự phòng đồng lô sản xuất`,
+              model: moduleModel,
+              brand: 'Qiangli / China',
+              unit: 'Tấm',
+              qty: specs.spareMod,
+              price: Math.round(saleModulePrice),
+              total: Math.round(specs.spareMod * saleModulePrice)
+            },
+            {
+              stt: '2',
+              name: 'Bộ nguồn DC 5V-60A dự phòng',
+              model: 'A-300AB-5',
+              brand: 'Chuanglian / China',
+              unit: 'Chiếc',
+              qty: specs.sparePwr,
+              price: 260000,
+              total: specs.sparePwr * 260000
+            }
+          ]
+        },
+        {
+          id: 'grp_V',
+          code: 'V',
+          title: 'BỘ XỬ LÝ HÌNH ẢNH CHUYÊN DỤNG (VIDEO PROCESSOR)',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: `Bộ xử lý hình ảnh All-in-one Video Processor:\n- Quản lý độ phân giải cao, tương thích nguồn phát PC, Laptop, Camera\n- Chuyển đổi tín hiệu mượt mà, hỗ trợ ghép màn hình PIP / POP`,
+              model: processorModel,
+              brand: 'Colorlight / Novastar',
+              unit: 'Bộ',
+              qty: 1,
+              price: processorPrice,
+              total: processorPrice
+            }
+          ]
+        },
+        {
+          id: 'grp_VI',
+          code: 'VI',
+          title: 'CHI PHÍ VẬN CHUYỂN, NHÂN CÔNG LẮP ĐẶT & CHẠY THỬ BÀN GIAO',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Vận chuyển hàng hóa đến chân công trình, kỹ thuật thi công lắp dựng, cân chỉnh mặt phẳng, đấu nối điện tín hiệu, chạy rà 72h và bàn giao kỹ thuật',
+              model: 'Trọn gói tại công trình',
+              brand: 'HACOLED',
+              unit: 'Gói',
+              qty: 1,
+              price: Math.max(5000000, Math.round(specs.actualArea * 750000)),
+              total: Math.max(5000000, Math.round(specs.actualArea * 750000))
+            }
+          ]
+        }
+      ];
+
+      // Re-render UI
+      renderEditorTable();
+      calculateQuotationTotals();
+
+      // Show notification toast
+      showNotification('Đã cập nhật giá bán & bóc tách toàn bộ hệ thống thành công!', 'success');
+    }
+
+    // --- 5. CATEGORY SWITCHER (PRESET TEMPLATES) ---
+    function switchCategory(cat) {
+      currentCategory = cat;
+
+      // Update Tab Styles
+      ['led_indoor', 'led_outdoor', 'lcd_videowall', 'interactive', 'repair'].forEach(c => {
+        const btn = document.getElementById('tab_' + c);
+        if (btn) {
+          if (c === cat) {
+            btn.className = "px-2.5 py-1.5 rounded-md font-medium text-white bg-red-700 shadow transition-all";
+          } else {
+            btn.className = "px-2.5 py-1.5 rounded-md font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all";
+          }
+        }
+      });
+
+      if (cat === 'led_indoor') {
+        document.getElementById('ledPitchSelect').value = 'P1.86';
+        onPitchChange();
+        applyCalculatedPricingToQuotation();
+      } else if (cat === 'led_outdoor') {
+        document.getElementById('ledPitchSelect').value = 'P4.0_OUT';
+        onPitchChange();
+        applyCalculatedPricingToQuotation();
+      } else if (cat === 'lcd_videowall') {
+        loadLcdVideoWallTemplate();
+      } else if (cat === 'interactive') {
+        loadInteractiveDisplayTemplate();
+      } else if (cat === 'repair') {
+        loadRepairServiceTemplate();
+      }
+    }
+
+    function loadLcdVideoWallTemplate() {
+      quotationData.groups = [
+        {
+          id: 'grp_LCD_I',
+          code: 'I',
+          title: 'HỆ THỐNG MÀN HÌNH GHÉP LCD 55 INCH VIỀN 1.74MM (BOE PANEL)',
+          subtitle: '- Ma trận ghép: 2 hàng x 2 cột = 4 màn hình 55 inch\n- Kích thước hiển thị: 2,426 x 1,368 mm (Độ phân giải 3840x2160 - 4K)',
+          items: [
+            {
+              stt: '1',
+              name: 'Màn hình ghép 55" chuyên dụng viền 1.74mm\n- Tấm nền BOE IPS chính hãng, độ sáng 500 cd/m²\n- Thời gian hoạt động liên tục 24/7, góc nhìn 178°',
+              model: 'HCV55-A (Viền 1.74mm)',
+              brand: 'HDFocus / BOE',
+              unit: 'Tấm',
+              qty: 4,
+              price: 28500000,
+              total: 114000000
+            },
+            {
+              stt: '2',
+              name: 'Giá treo chuyên dụng Pop-out thủy lực đẩy ra vào bảo trì mặt trước',
+              model: 'Pop-out 55"',
+              brand: 'Việt Nam',
+              unit: 'Bộ',
+              qty: 4,
+              price: 1800000,
+              total: 7200000
+            },
+            {
+              stt: '3',
+              name: 'Bộ điều khiển ma trận màn hình ghép Controller 4K (4 vào / 4 ra HDMI)',
+              model: 'Matrix 4x4 4K',
+              brand: 'Colorlight / China',
+              unit: 'Bộ',
+              qty: 1,
+              price: 15000000,
+              total: 15000000
+            },
+            {
+              stt: '4',
+              name: 'Hệ thống cáp tín hiệu HDMI 2.0 4K Ugreen & dây nguồn chuyên dụng',
+              model: 'Cáp Ugreen 4K',
+              brand: 'Ugreen',
+              unit: 'Gói',
+              qty: 1,
+              price: 3200000,
+              total: 3200000
+            },
+            {
+              stt: '5',
+              name: 'Chi phí vận chuyển, lắp đặt hoàn thiện và căn chỉnh mép ghép',
+              model: 'Trọn gói',
+              brand: 'HACOLED',
+              unit: 'Gói',
+              qty: 1,
+              price: 6000000,
+              total: 6000000
+            }
+          ]
+        }
+      ];
+      renderEditorTable();
+      calculateQuotationTotals();
+      showNotification('Đã nạp mẫu Báo giá Màn hình ghép LCD Video Wall', 'info');
+    }
+
+    function loadInteractiveDisplayTemplate() {
+      quotationData.groups = [
+        {
+          id: 'grp_IT_I',
+          code: 'I',
+          title: 'MÀN HÌNH TƯƠNG TÁC THÔNG MINH HDFOCUS (DUAL OS ANDROID + OPS WINDOWS)',
+          subtitle: '- Phục vụ hội nghị trực tuyến, phòng họp thông minh và giáo dục đào tạo',
+          items: [
+            {
+              stt: '1',
+              name: 'Màn hình tương tác thông minh 75 inch HDFocus 4K Ultra HD\n- Cảm ứng hồng ngoại 20 điểm chạm mượt mà\n- Hệ điều hành Android 11 (RAM 4GB, ROM 32GB)\n- Kính cường lực chống lóa AG 7H, 2 loa 15W',
+              model: 'HD-75I-T Dual OS',
+              brand: 'HDFocus / China',
+              unit: 'Chiếc',
+              qty: 1,
+              price: 36500000,
+              total: 36500000
+            },
+            {
+              stt: '2',
+              name: 'Module máy tính OPS gắn trong:\n- Cấu hình: Intel Core i5 Gen 11, RAM 8GB, SSD 256GB, Windows 11 Pro',
+              model: 'OPS-i5-11',
+              brand: 'HDFocus / China',
+              unit: 'Chiếc',
+              qty: 1,
+              price: 9500000,
+              total: 9500000
+            },
+            {
+              stt: '3',
+              name: 'Chân đế di động chịu lực có bánh xe khóa vị trí chuyên dụng 65 - 86 inch',
+              model: 'Mobile Stand 75"',
+              brand: 'Nhập khẩu',
+              unit: 'Chiếc',
+              qty: 1,
+              price: 3200000,
+              total: 3200000
+            },
+            {
+              stt: '4',
+              name: 'Bút cảm ứng từ tính (02 chiếc) + Dongle truyền hình ảnh không dây Wireless Share',
+              model: 'Wireless Dongle 4K',
+              brand: 'HDFocus',
+              unit: 'Bộ',
+              qty: 1,
+              price: 2500000,
+              total: 2500000
+            },
+            {
+              stt: '5',
+              name: 'Vận chuyển, lắp ráp và hướng dẫn sử dụng phần mềm bảng trắng',
+              model: 'Giao hàng tận nơi',
+              brand: 'HACOLED',
+              unit: 'Gói',
+              qty: 1,
+              price: 1500000,
+              total: 1500000
+            }
+          ]
+        }
+      ];
+      renderEditorTable();
+      calculateQuotationTotals();
+      showNotification('Đã nạp mẫu Báo giá Màn hình tương tác HDFocus', 'info');
+    }
+
+    function loadRepairServiceTemplate() {
+      quotationData.groups = [
+        {
+          id: 'grp_REP_I',
+          code: 'I',
+          title: 'DỊCH VỤ SỬA CHỮA, THAY THẾ LINH KIỆN & BẢO TRÌ MÀN HÌNH LED',
+          subtitle: '',
+          items: [
+            {
+              stt: '1',
+              name: 'Kiểm tra lỗi, sửa mạch và thay thế bóng LED SMD bị chết điểm / sai màu',
+              model: 'Sửa điểm ảnh',
+              brand: 'HACOLED',
+              unit: 'Tấm',
+              qty: 15,
+              price: 250000,
+              total: 3750000
+            },
+            {
+              stt: '2',
+              name: 'Thay thế bộ nguồn 5V-60A bị hỏng tụ, sụt áp gây nhiễu màn hình',
+              model: 'A-300AB-5',
+              brand: 'Chuanglian',
+              unit: 'Chiếc',
+              qty: 4,
+              price: 350000,
+              total: 1400000
+            },
+            {
+              stt: '3',
+              name: 'Thay thế Card thu tín hiệu bị chập cổng LAN',
+              model: '5A-75E',
+              brand: 'Colorlight',
+              unit: 'Chiếc',
+              qty: 2,
+              price: 450000,
+              total: 900000
+            },
+            {
+              stt: '4',
+              name: 'Nhân công tháo dỡ, cân chỉnh màu sắc toàn màn hình và vệ sinh quạt tản nhiệt',
+              model: 'Nhân công kỹ thuật',
+              brand: 'HACOLED',
+              unit: 'Gói',
+              qty: 1,
+              price: 2500000,
+              total: 2500000
+            }
+          ]
+        }
+      ];
+      renderEditorTable();
+      calculateQuotationTotals();
+      showNotification('Đã nạp mẫu Báo giá Sửa chữa & Bảo trì', 'info');
+    }
+
+    // --- 6. RENDER EDITABLE TABLE & LIVE PREVIEW ---
+    function renderEditorTable() {
+      const tbody = document.getElementById('editorTableBody');
+      const pvBody = document.getElementById('pv_tableBody');
+      let editorHtml = '';
+      let previewHtml = '';
+
+      let overallItemIndex = 1;
+
+      quotationData.groups.forEach((group, gIdx) => {
+        // --- EDITOR GROUP HEADER ---
+        editorHtml += `
+          <tr class="bg-slate-100 font-bold text-slate-800 border-t-2 border-slate-300">
+            <td class="p-2 text-center text-red-700 font-extrabold">${group.code}</td>
+            <td colspan="7" class="p-2">
+              <div class="flex items-center justify-between gap-2">
+                <input type="text" value="${escapeHtml(group.title)}" onchange="updateGroupTitle(${gIdx}, this.value)" class="w-full text-xs font-bold px-2 py-1 bg-white border border-slate-300 rounded text-slate-900">
+                <button onclick="deleteGroup(${gIdx})" title="Xóa nhóm" class="text-slate-400 hover:text-red-600 px-2">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </div>
+              ${group.subtitle ? `<div class="text-[11px] text-slate-500 font-normal mt-1 pl-2 whitespace-pre-line">${escapeHtml(group.subtitle)}</div>` : ''}
+            </td>
+            <td class="p-2 text-center">
+              <button onclick="addItemToGroup(${gIdx})" title="Thêm dòng vào nhóm này" class="text-xs text-emerald-600 hover:text-emerald-800 font-bold">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+
+        // --- PREVIEW GROUP HEADER ---
+        previewHtml += `
+          <tr class="bg-gray-100 font-bold">
+            <td class="border border-black p-1 text-center font-bold">${group.code}</td>
+            <td colspan="7" class="border border-black p-1 font-bold text-gray-900">
+              ${escapeHtml(group.title)}
+              ${group.subtitle ? `<div class="font-normal italic text-[9.5pt] text-gray-700 whitespace-pre-line mt-0.5">${escapeHtml(group.subtitle)}</div>` : ''}
+            </td>
+          </tr>
+        `;
+
+        // --- GROUP ITEMS ---
+        group.items.forEach((item, iIdx) => {
+          const itemTotal = (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
+          item.total = itemTotal;
+
+          // Editor Row
+          editorHtml += `
+            <tr class="hover:bg-slate-50/80 transition">
+              <td class="p-2 text-center font-medium text-slate-500">${item.stt || overallItemIndex}</td>
+              <td class="p-2">
+                <textarea rows="2" onchange="updateItemField(${gIdx}, ${iIdx}, 'name', this.value)" class="w-full text-xs p-1.5 bg-white border border-slate-200 rounded focus:border-red-400 focus:outline-none resize-y">${escapeHtml(item.name)}</textarea>
+              </td>
+              <td class="p-2">
+                <input type="text" value="${escapeHtml(item.model)}" onchange="updateItemField(${gIdx}, ${iIdx}, 'model', this.value)" class="w-full text-xs p-1.5 bg-white border border-slate-200 rounded">
+              </td>
+              <td class="p-2">
+                <input type="text" value="${escapeHtml(item.brand)}" onchange="updateItemField(${gIdx}, ${iIdx}, 'brand', this.value)" class="w-full text-xs p-1.5 bg-white border border-slate-200 rounded">
+              </td>
+              <td class="p-2 text-center">
+                <input type="text" value="${escapeHtml(item.unit)}" onchange="updateItemField(${gIdx}, ${iIdx}, 'unit', this.value)" class="w-full text-xs p-1.5 text-center bg-white border border-slate-200 rounded">
+              </td>
+              <td class="p-2 text-center">
+                <input type="number" step="any" value="${item.qty}" oninput="updateItemField(${gIdx}, ${iIdx}, 'qty', this.value)" class="w-full text-xs p-1.5 text-center bg-white border border-slate-200 rounded font-semibold">
+              </td>
+              <td class="p-2 text-right">
+                <input type="text" value="${formatNumber(item.price)}" oninput="formatCurrencyInput(this); updateItemField(${gIdx}, ${iIdx}, 'price', parseFormattedNumber(this.value))" class="w-full text-xs p-1.5 text-right bg-white border border-slate-200 rounded font-semibold text-slate-900">
+              </td>
+              <td class="p-2 text-right font-bold text-slate-900">
+                ${formatNumber(itemTotal)} đ
+              </td>
+              <td class="p-2 text-center">
+                <button onclick="deleteItem(${gIdx}, ${iIdx})" title="Xóa dòng này" class="text-slate-400 hover:text-red-600">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+
+          // Preview Row
+          previewHtml += `
+            <tr>
+              <td class="border border-black p-1 text-center align-top">${item.stt || overallItemIndex}</td>
+              <td class="border border-black p-1 align-top whitespace-pre-line">${escapeHtml(item.name)}</td>
+              <td class="border border-black p-1 text-center align-top font-medium">${escapeHtml(item.model)}</td>
+              <td class="border border-black p-1 text-center align-top">${escapeHtml(item.brand)}</td>
+              <td class="border border-black p-1 text-center align-top">${escapeHtml(item.unit)}</td>
+              <td class="border border-black p-1 text-center align-top font-bold">${item.qty}</td>
+              <td class="border border-black p-1 text-right align-top">${formatNumber(item.price)}</td>
+              <td class="border border-black p-1 text-right align-top font-bold">${formatNumber(itemTotal)}</td>
+            </tr>
+          `;
+
+          overallItemIndex++;
+        });
+
+      });
+
+      tbody.innerHTML = editorHtml;
+      pvBody.innerHTML = previewHtml;
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // Item Mutation Handlers
+    function updateItemField(gIdx, iIdx, field, value) {
+      if (quotationData.groups[gIdx] && quotationData.groups[gIdx].items[iIdx]) {
+        if (field === 'qty' || field === 'price') {
+          quotationData.groups[gIdx].items[iIdx][field] = parseFloat(value) || 0;
+        } else {
+          quotationData.groups[gIdx].items[iIdx][field] = value;
+        }
+        calculateQuotationTotals();
+        renderEditorTable();
+      }
+    }
+
+    function updateGroupTitle(gIdx, val) {
+      if (quotationData.groups[gIdx]) {
+        quotationData.groups[gIdx].title = val;
+        renderEditorTable();
+      }
+    }
+
+    function deleteItem(gIdx, iIdx) {
+      if (quotationData.groups[gIdx]) {
+        quotationData.groups[gIdx].items.splice(iIdx, 1);
+        renderEditorTable();
+        calculateQuotationTotals();
+      }
+    }
+
+    function deleteGroup(gIdx) {
+      if (confirm('Bạn có chắc muốn xóa toàn bộ nhóm này không?')) {
+        quotationData.groups.splice(gIdx, 1);
+        renderEditorTable();
+        calculateQuotationTotals();
+      }
+    }
+
+    function addNewGroup() {
+      const codeList = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
+      const nextCode = codeList[quotationData.groups.length] || `N-${quotationData.groups.length + 1}`;
+      quotationData.groups.push({
+        id: 'grp_' + Date.now(),
+        code: nextCode,
+        title: 'HẠNG MỤC MỚI ' + nextCode,
+        subtitle: '',
+        items: [
+          {
+            stt: '1',
+            name: 'Mô tả thiết bị / dịch vụ mới',
+            model: 'Tiêu chuẩn',
+            brand: 'HACOLED',
+            unit: 'Bộ',
+            qty: 1,
+            price: 1000000,
+            total: 1000000
+          }
+        ]
+      });
+      renderEditorTable();
+      calculateQuotationTotals();
+    }
+
+    function addItemToGroup(gIdx) {
+      if (quotationData.groups[gIdx]) {
+        const nextStt = quotationData.groups[gIdx].items.length + 1;
+        quotationData.groups[gIdx].items.push({
+          stt: nextStt.toString(),
+          name: 'Thiết bị bổ sung',
+          model: '',
+          brand: 'Chính hãng',
+          unit: 'Chiếc',
+          qty: 1,
+          price: 500000,
+          total: 500000
+        });
+        renderEditorTable();
+        calculateQuotationTotals();
+      }
+    }
+
+    function addNewItem() {
+      if (quotationData.groups.length === 0) {
+        addNewGroup();
+      } else {
+        addItemToGroup(quotationData.groups.length - 1);
+      }
+    }
+
+    // --- 7. FINANCIAL TOTALS CALCULATION ---
+    function calculateQuotationTotals() {
+      let subTotal = 0;
+      quotationData.groups.forEach(g => {
+        g.items.forEach(item => {
+          subTotal += (parseFloat(item.qty) || 0) * (parseFloat(item.price) || 0);
+        });
+      });
+
+      const vatRate = parseFloat(document.getElementById('vatSelect').value) || 0;
+      const discount = parseFormattedNumber(document.getElementById('discountInput').value) || 0;
+
+      const vatAmount = Math.round((subTotal - discount) * (vatRate / 100));
+      const grandTotal = Math.max(0, subTotal - discount + vatAmount);
+
+      quotationData.meta.vatPercent = vatRate;
+      quotationData.meta.discount = discount;
+
+      // Update Financial Bar
+      document.getElementById('subTotalDisplay').innerText = formatNumber(subTotal) + ' đ';
+      document.getElementById('vatAmountDisplay').innerText = formatNumber(vatAmount) + ' đ';
+      document.getElementById('grandTotalDisplay').innerText = formatNumber(grandTotal) + ' đ';
+
+      const words = docSoTienBangChu(grandTotal);
+      document.getElementById('amountInWordsDisplay').innerText = words;
+
+      // Update Preview Document
+      document.getElementById('pv_subTotal').innerText = formatNumber(subTotal);
+      document.getElementById('pv_vatPercent').innerText = vatRate;
+      document.getElementById('pv_vatAmount').innerText = formatNumber(vatAmount);
+      document.getElementById('pv_grandTotal').innerText = formatNumber(grandTotal);
+      document.getElementById('pv_amountInWords').innerText = words;
+
+      if (discount > 0) {
+        document.getElementById('pv_discountRow').style.display = 'table-row';
+        document.getElementById('pv_discountAmount').innerText = '-' + formatNumber(discount);
+      } else {
+        document.getElementById('pv_discountRow').style.display = 'none';
+      }
+
+      if (vatRate === 0) {
+        document.getElementById('pv_vatRow').style.display = 'none';
+      } else {
+        document.getElementById('pv_vatRow').style.display = 'table-row';
+      }
+    }
+
+    // --- 8. SYNCHRONIZE CUSTOMER & TERMS INFO ---
+    function syncCustomerInfo() {
+      const contact = document.getElementById('custContactName').value || 'Anh Nguyễn Văn A';
+      const company = document.getElementById('custCompanyName').value || '';
+      const phone = document.getElementById('custPhone').value || '';
+      const email = document.getElementById('custEmail').value || '';
+      const address = document.getElementById('custAddress').value || '';
+      const dateVal = document.getElementById('quoteDate').value;
+      const validity = document.getElementById('quoteValidity').value || '30 ngày';
+
+      quotationData.meta.customer = { contact, company, phone, email, address };
+      quotationData.meta.validity = validity;
+
+      document.getElementById('pv_custName').innerText = contact;
+      document.getElementById('pv_custCompany').innerText = company;
+      document.getElementById('pv_custPhone').innerText = phone;
+      document.getElementById('pv_custEmail').innerText = email;
+      document.getElementById('pv_custAddress').innerText = address;
+      document.getElementById('pv_quoteValidity').innerText = validity;
+      document.getElementById('pv_validityDays').innerText = validity;
+      document.getElementById('pv_sigCustName').innerText = contact;
+
+      if (dateVal) {
+        const d = new Date(dateVal);
+        const day = d.getDate().toString().padStart(2, '0');
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const year = d.getFullYear();
+        document.getElementById('pv_quoteDate').innerText = `ngày ${day} tháng ${month} năm ${year}`;
+      }
+    }
+
+    function syncTermsToPreview() {
+      const del = document.getElementById('deliveryTimeInput').value;
+      const war = document.getElementById('warrantyInput').value;
+      const pay = document.getElementById('paymentTermsInput').value;
+
+      document.getElementById('pv_deliveryTime').innerText = del;
+      document.getElementById('pv_warranty').innerText = war;
+      document.getElementById('pv_paymentTerms').innerText = pay;
+
+      quotationData.meta.terms = { deliveryTime: del, warranty: war, payment: pay };
+    }
+
+    // --- 9. EXPORT & INTEGRATION FUNCTIONS ---
+
+    // 9.1 Print / PDF
+    function printQuotation() {
+      window.print();
+    }
+
+    // 9.2 Export to Word (.doc)
+    function exportToWord() {
+      const docHtml = document.getElementById('quotationDoc').innerHTML;
+      const fileName = `Bao_Gia_HACOLED_${(quotationData.meta.customer.company || 'KH').replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.doc`;
+
+      const header = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+          <meta charset='utf-8'>
+          <title>Báo giá HACOLED</title>
+          <style>
+            @page Section1 { size: 595.3pt 841.9pt; margin: 40pt 40pt 40pt 40pt; mso-header-margin: 36pt; mso-footer-margin: 36pt; mso-paper-source: 0; }
+            div.Section1 { page: Section1; }
+            body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.35; color: #000; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 10px; }
+            th, td { border: 1px solid black; padding: 4px 6px; font-size: 10pt; }
+            th { background-color: #f2f2f2; }
+            .no-border { border: none !important; }
+          </style>
+        </head>
+        <body>
+          <div class="Section1">
+      `;
+      const footer = `</div></body></html>`;
+
+      const sourceHTML = header + docHtml + footer;
+      const blob = new Blob(['\ufeff' + sourceHTML], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showNotification('Đã xuất file Word thành công!', 'success');
+    }
+
+    // 9.3 Export to Excel (.xlsx) using SheetJS
+    function exportToExcel() {
+      const wb = XLSX.utils.book_new();
+      const wsData = [
+        ['CÔNG TY CỔ PHẦN CÔNG NGHỆ HACO VIỆT NAM'],
+        ['Địa chỉ: Ngách 57/92 Đường Quang Minh, Thôn Gia Thượng 2, Xã Quang Minh, Hà Nội'],
+        ['Hotline: 034 232 4488 - 0944 070 797 | Website: hacoled.com | MST: 0108701064'],
+        [],
+        ['BẢNG BÁO GIÁ THIẾT BỊ VÀ THI CÔNG LẮP ĐẶT'],
+        [`Kính gửi: ${quotationData.meta.customer.contact}`],
+        [`Đơn vị: ${quotationData.meta.customer.company}`],
+        [`Địa chỉ: ${quotationData.meta.customer.address}`],
+        [`Điện thoại: ${quotationData.meta.customer.phone} | Ngày báo giá: ${quotationData.meta.quoteDate}`],
+        [],
+        ['TT', 'Danh mục hàng hóa / Quy cách kỹ thuật', 'Ký mã hiệu (Model)', 'Hãng SX / Nước SX', 'ĐVT', 'Số lượng', 'Đơn giá (VNĐ)', 'Thành tiền (VNĐ)']
+      ];
+
+      let itemCounter = 1;
+      quotationData.groups.forEach(g => {
+        wsData.push([g.code, g.title, '', '', '', '', '', '']);
+        g.items.forEach(item => {
+          wsData.push([
+            item.stt || itemCounter++,
+            item.name,
+            item.model,
+            item.brand,
+            item.unit,
+            item.qty,
+            item.price,
+            item.total
+          ]);
+        });
+      });
+
+      // Totals
+      const subTotal = quotationData.groups.reduce((acc, g) => acc + g.items.reduce((sum, it) => sum + it.total, 0), 0);
+      const vatRate = quotationData.meta.vatPercent || 0;
+      const discount = quotationData.meta.discount || 0;
+      const vatAmount = Math.round((subTotal - discount) * (vatRate / 100));
+      const grandTotal = subTotal - discount + vatAmount;
+
+      wsData.push([]);
+      wsData.push(['', '', '', '', '', '', 'Tổng cộng trước thuế:', subTotal]);
+      if (discount > 0) wsData.push(['', '', '', '', '', '', 'Chiết khấu:', -discount]);
+      wsData.push(['', '', '', '', '', '', `Thuế VAT (${vatRate}%):`, vatAmount]);
+      wsData.push(['', '', '', '', '', '', 'TỔNG CỘNG THANH TOÁN:', grandTotal]);
+      wsData.push(['Bằng chữ:', docSoTienBangChu(grandTotal)]);
+      wsData.push([]);
+      wsData.push(['GHI CHÚ & ĐIỀU KHOẢN THƯƠNG MẠI']);
+      wsData.push(['- Thời gian thi công:', quotationData.meta.terms.deliveryTime]);
+      wsData.push(['- Chính sách bảo hành:', quotationData.meta.terms.warranty]);
+      wsData.push(['- Điều kiện thanh toán:', quotationData.meta.terms.payment]);
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 6 },
+        { wch: 50 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 8 },
+        { wch: 10 },
+        { wch: 18 },
+        { wch: 20 }
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Báo Giá HACOLED');
+      const fileName = `Bao_Gia_HACOLED_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      showNotification('Đã xuất file Excel (.xlsx) thành công!', 'success');
+    }
+
+    // 9.4 Transfer data to Contract App (phan_mem_tao_hop_dong_haco)
+    function sendToContractApp() {
+      // Package quotation data to localStorage for the contract generator
+      const total = parseFormattedNumber(document.getElementById('grandTotalDisplay').innerText);
+      const contractPayload = {
+        fromQuotation: true,
+        buyerName: quotationData.meta.customer.company,
+        buyerContact: quotationData.meta.customer.contact,
+        buyerPhone: quotationData.meta.customer.phone,
+        buyerAddress: quotationData.meta.customer.address,
+        totalAmount: total,
+        totalAmountWords: docSoTienBangChu(total),
+        projectName: quotationData.groups[0] ? quotationData.groups[0].title : 'Cung cấp và lắp đặt màn hình LED',
+        items: quotationData.groups
+      };
+
+      localStorage.setItem('HACO_PENDING_CONTRACT_DATA', JSON.stringify(contractPayload));
+
+      const contractRepoUrl = 'https://phan-mem-tao-hop-dong-haco.vercel.app';
+      const userConfirm = confirm(`Đã lưu thông tin dự án giá trị ${formatNumber(total)} đ vào bộ nhớ đệm!\n\nBạn có muốn chuyển sang Phần mềm Tạo Hợp Đồng HACO ngay bây giờ không?`);
+      if (userConfirm) {
+        window.open(contractRepoUrl, '_blank');
+      }
+    }
+
+    // --- 10. LOCAL STORAGE HISTORY MANAGEMENT ---
+    function saveCurrentQuotation() {
+      const history = JSON.parse(localStorage.getItem('HACO_QUOTATIONS_HISTORY') || '[]');
+      const currentQuote = {
+        id: 'QUOTE_' + Date.now(),
+        savedAt: new Date().toISOString(),
+        meta: quotationData.meta,
+        groups: quotationData.groups
+      };
+
+      // Add to beginning
+      history.unshift(currentQuote);
+      // Keep max 50 items
+      if (history.length > 50) history.pop();
+      localStorage.setItem('HACO_QUOTATIONS_HISTORY', JSON.stringify(history));
+
+      updateHistoryCount();
+      showNotification('Đã lưu báo giá vào lịch sử thành công!', 'success');
+    }
+
+    function updateHistoryCount() {
+      const history = JSON.parse(localStorage.getItem('HACO_QUOTATIONS_HISTORY') || '[]');
+      const countEl = document.getElementById('savedCount');
+      if (countEl) countEl.innerText = history.length;
+    }
+
+    function openHistoryModal() {
+      renderHistoryList();
+      document.getElementById('historyModal').classList.remove('hidden');
+    }
+
+    function closeHistoryModal() {
+      document.getElementById('historyModal').classList.add('hidden');
+    }
+
+    function renderHistoryList() {
+      const history = JSON.parse(localStorage.getItem('HACO_QUOTATIONS_HISTORY') || '[]');
+      const container = document.getElementById('historyListContainer');
+      const search = (document.getElementById('searchHistoryInput').value || '').toLowerCase();
+
+      const filtered = history.filter(item => {
+        const comp = (item.meta.customer.company || '').toLowerCase();
+        const contact = (item.meta.customer.contact || '').toLowerCase();
+        const phone = (item.meta.customer.phone || '').toLowerCase();
+        return comp.includes(search) || contact.includes(search) || phone.includes(search);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div class="text-center text-slate-400 py-8 text-xs">Chưa có báo giá nào được lưu hoặc không tìm thấy kết quả.</div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach((item, idx) => {
+        const sub = item.groups.reduce((acc, g) => acc + g.items.reduce((s, it) => s + (it.total || 0), 0), 0);
+        const vat = Math.round((sub - (item.meta.discount || 0)) * ((item.meta.vatPercent || 0) / 100));
+        const grand = sub - (item.meta.discount || 0) + vat;
+
+        html += `
+          <div class="bg-slate-50 hover:bg-slate-100 p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3 text-xs transition">
+            <div class="flex-1">
+              <div class="font-bold text-slate-800 text-sm">${escapeHtml(item.meta.customer.company || 'Khách lẻ')}</div>
+              <div class="text-slate-500 mt-0.5">
+                <span>Liên hệ: <strong>${escapeHtml(item.meta.customer.contact)}</strong> (${escapeHtml(item.meta.customer.phone)})</span>
+                <span class="mx-1">•</span>
+                <span>Ngày: ${new Date(item.savedAt).toLocaleDateString('vi-VN')}</span>
+              </div>
+              <div class="text-red-700 font-extrabold mt-1 text-sm">${formatNumber(grand)} đ</div>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="loadSavedQuotation('${item.id}')" class="px-2.5 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-lg font-medium transition">
+                Mở lại
+              </button>
+              <button onclick="deleteSavedQuotation('${item.id}')" class="p-1.5 text-slate-400 hover:text-red-600 transition">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function loadSavedQuotation(id) {
+      const history = JSON.parse(localStorage.getItem('HACO_QUOTATIONS_HISTORY') || '[]');
+      const found = history.find(it => it.id === id);
+      if (found) {
+        quotationData.meta = found.meta;
+        quotationData.groups = found.groups;
+
+        // Populate fields
+        document.getElementById('custContactName').value = found.meta.customer.contact || '';
+        document.getElementById('custCompanyName').value = found.meta.customer.company || '';
+        document.getElementById('custPhone').value = found.meta.customer.phone || '';
+        document.getElementById('custEmail').value = found.meta.customer.email || '';
+        document.getElementById('custAddress').value = found.meta.customer.address || '';
+        document.getElementById('quoteValidity').value = found.meta.validity || '';
+        document.getElementById('vatSelect').value = found.meta.vatPercent || 8;
+        document.getElementById('discountInput').value = formatNumber(found.meta.discount || 0);
+
+        if (found.meta.terms) {
+          document.getElementById('deliveryTimeInput').value = found.meta.terms.deliveryTime || '';
+          document.getElementById('warrantyInput').value = found.meta.terms.warranty || '';
+          document.getElementById('paymentTermsInput').value = found.meta.terms.payment || '';
+        }
+
+        syncCustomerInfo();
+        syncTermsToPreview();
+        renderEditorTable();
+        calculateQuotationTotals();
+        closeHistoryModal();
+        showNotification('Đã mở lại báo giá thành công!', 'info');
+      }
+    }
+
+    function deleteSavedQuotation(id) {
+      if (confirm('Bạn có muốn xóa báo giá này khỏi lịch sử?')) {
+        let history = JSON.parse(localStorage.getItem('HACO_QUOTATIONS_HISTORY') || '[]');
+        history = history.filter(it => it.id !== id);
+        localStorage.setItem('HACO_QUOTATIONS_HISTORY', JSON.stringify(history));
+        renderHistoryList();
+        updateHistoryCount();
+      }
+    }
+
+    function clearAllHistory() {
+      if (confirm('CẢNH BÁO: Thao tác này sẽ xóa toàn bộ lịch sử báo giá đã lưu trên máy này. Bạn có chắc không?')) {
+        localStorage.removeItem('HACO_QUOTATIONS_HISTORY');
+        renderHistoryList();
+        updateHistoryCount();
+      }
+    }
+
+    // --- 11. NOTIFICATION TOAST HELPER ---
+    function showNotification(message, type = 'info') {
+      const toast = document.createElement('div');
+      const bgColors = {
+        success: 'bg-emerald-600 text-white',
+        info: 'bg-slate-900 text-white',
+        warning: 'bg-amber-500 text-slate-900'
+      };
+
+      toast.className = `fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2.5 text-xs font-semibold transform transition-all duration-300 translate-y-5 opacity-0 ${bgColors[type] || bgColors.info}`;
+      toast.innerHTML = `
+        <i class="fa-solid fa-circle-check text-base"></i>
+        <span>${message}</span>
+      `;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.remove('translate-y-5', 'opacity-0');
+      }, 50);
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-5', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // --- 12. INITIAL RUN ON DOM READY ---
+    window.addEventListener('DOMContentLoaded', () => {
+      // Set today's date
+      document.getElementById('quoteDate').value = new Date().toISOString().split('T')[0];
+      
+      calculateLedDimensions();
+      syncCustomerInfo();
+      syncTermsToPreview();
+      renderEditorTable();
+      calculateQuotationTotals();
+      updateHistoryCount();
+    });
+  </script>
+</body>
+</html>
