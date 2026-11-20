@@ -995,7 +995,7 @@
             ${labels[id]}
           </label>
           ${g.items.map((it,i)=>`<label class="block text-xs text-slate-600 mt-2">
-            ${escapeHtml(it.name.split('\\n')[0])} — Đơn giá (VNĐ/${escapeHtml(it.unit)})
+            ${escapeHtml(it.name.split('\n')[0])} — Đơn giá (VNĐ/${escapeHtml(it.unit)})
             <input type="number" min="0" step="1000" value="${Number(it.price)>0 ? Number(it.price) : ''}"
               placeholder="Nhập giá" onchange="updateOptionalPrice('${id}',${i},this.value)"
               class="mt-1 w-full px-2 py-2 bg-white border border-slate-300 rounded-lg text-slate-900">
@@ -1031,13 +1031,13 @@
       if (!Number.isInteger(months) || months<1 || months>120) return;
       document.getElementById('warrantyInput').value = 'Bảo hành chính hãng '+months+' tháng, xử lý sự cố trong vòng 24h';
       quotationData.groups.forEach(g=>{
-        if (g.id==='grp_I') g.title = g.title.replace(/\\(BẢO HÀNH \\d+ THÁNG\\)/i,'(BẢO HÀNH '+months+' THÁNG)');
+        if (g.id==='grp_I') g.title = g.title.replace(/\(BẢO HÀNH \d+ THÁNG\)/i,'(BẢO HÀNH '+months+' THÁNG)');
       });
       syncTermsToPreview(); renderEditorTable();
     }
     function syncWarrantySelectFromStored() {
       const value = document.getElementById('warrantyInput').value;
-      const match = value.match(/(\\d+)\\s*tháng/i);
+      const match = value.match(/(\d+)\s*tháng/i);
       const months = match ? Number(match[1]) : 24;
       const select = document.getElementById('warrantyMonths');
       const custom = document.getElementById('warrantyCustomMonths');
@@ -2024,6 +2024,9 @@
         showNotification('Đang tải thư viện xuất Excel…', 'info');
         return;
       }
+      const unpriced = quotationData.groups.filter(g=>g.enabled!==false && ['grp_II','grp_III','grp_VI'].includes(g.id))
+        .flatMap(g=>g.items.filter(it=>Number(it.price)<=0).map(it=>it.name.split('\\n')[0]));
+      if (unpriced.length && !confirm('Các mục sau chưa có đơn giá: '+unpriced.join(', ')+'\\nXuất bản nháp Excel với các giá này bằng 0?')) return;
       const wb = XLSX.utils.book_new();
       const wsData = [
         ['CÔNG TY CỔ PHẦN CÔNG NGHỆ HACO VIỆT NAM'],
