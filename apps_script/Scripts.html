@@ -1,0 +1,149 @@
+<script>
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const state = {products:[],modes:[],mode:'linh-kien',draft:null};
+const modeInfo={
+ 'linh-kien':{icon:'▤',desc:'Module LED, nguồn, card và phụ kiện'},
+ 'khach-thuong':{icon:'▦',desc:'Màn hình hoàn chỉnh, thi công và dịch vụ'},
+ 'du-an-thau':{icon:'◇',desc:'Dự án, khối lượng và hồ sơ đấu thầu'},
+ 'dai-ly-doi-tac':{icon:'♧',desc:'Chính sách cho đại lý và đối tác'}
+};
+function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=String(text);if(cls)e.className=cls;return e;}
+function clear(e){while(e.firstChild)e.removeChild(e.firstChild)}
+function notify(text,kind){$('noticeText').textContent=text;$('notice').className='notice '+(kind||'');}
+function error(e){const message=e&&e.message?e.message:String(e);notify('Không tải được danh mục: '+message+' — Kiểm tra quyền đọc Google Sheets và phiên bản triển khai.','error');$('retryConnect').style.display='inline-block';setBusy(false);}
+function setBusy(b){$('bomBtn').disabled=b;$('draftBtn').disabled=b;}
+function ensureInput(purpose){
+ const p=selected();
+ if(p)return p;
+ notify('Để '+purpose+', chọn Hãng / nhóm sản phẩm, sau đó chọn Model ở BƯỚC 02.','error');
+ $('productSection').scrollIntoView({behavior:'smooth',block:'start'});
+ if(!$('brand').value) $('brand').focus(); else $('model').focus();
+ return null;
+}
+function runServer(method,payload,success){
+ if(typeof google==='undefined'||!google.script||!google.script.run){
+   error(new Error('Chức năng cần mở từ Web App Apps Script (/exec hoặc /dev), không chạy từ bản xem trước HTML.'));return;
+ }
+ setBusy(true);
+ let done=false;
+ const guard=setTimeout(()=>{if(done)return;done=true;setBusy(false);notify('Yêu cầu '+method+' chưa trả kết quả sau 25 giây. Kiểm tra Apps Script → Executions và quyền truy cập Google Sheets.','error');},25000);
+ const finish=()=>{if(done)return false;done=true;clearTimeout(guard);setBusy(false);return true;};
+ try{
+   const runner=google.script.run.withSuccessHandler(r=>{if(finish())success(r);})
+     .withFailureHandler(e=>{if(finish())error(e);});
+   runner[method](payload);
+ }catch(e){if(finish())error(e);}
+}
+
+function selected(){return state.products.find(x=>x.key===$('model').value&&x.brand===$('brand').value);}
+function modeLabel(){return (state.modes.find(x=>x.id===state.mode)||{}).label||'Báo giá bán linh kiện';}
+function renderMode(items){state.modes=items;const root=$('modes');clear(root);items.forEach(x=>{
+ const b=el('button',undefined,'mode'+(x.id===state.mode?' active':''));b.type='button';b.setAttribute('aria-pressed',x.id===state.mode?'true':'false');
+ const top=el('div',undefined,'mode-top');top.appendChild(el('span',(modeInfo[x.id]||{}).icon||'▤','mode-symbol'));top.appendChild(el('span','✓','mode-check'));b.appendChild(top);
+ b.appendChild(el('span',x.label,'mode-title'));b.appendChild(el('span',(modeInfo[x.id]||{}).desc||'Chọn hình thức báo giá','mode-desc'));
+ b.addEventListener('click',()=>{state.mode=x.id;root.querySelectorAll('button').forEach(c=>{const active=c===b;c.classList.toggle('active',active);c.setAttribute('aria-pressed',String(active));});$('summaryMode').textContent=modeLabel();invalidateDraft();});root.appendChild(b);
+});}
+function invalidateDraft(){state.draft=null;$('printBtn').disabled=true;$('draftSection').hidden=true;clear($('draftResult'));}
+function renderBrand(){const b=$('brand');clear(b);b.appendChild(new Option('Chọn hãng / nhóm sản phẩm',''));const names=[...new Set(state.products.map(p=>p.brand))].sort((a,b)=>a.localeCompare(b,'vi'));names.forEach(n=>b.appendChild(new Option(n,n)));$('productCount').textContent=state.products.length.toLocaleString('vi-VN');$('brandCount').textContent=names.length;}
+function renderModels(){const brand=$('brand').value,select=$('model');clear(select);select.appendChild(new Option(brand?'Chọn model sản phẩm':'Chọn hãng trước',''));select.disabled=!brand;state.products.filter(p=>p.brand===brand).forEach(p=>select.appendChild(new Option(p.model,p.key)));$('summaryBrand').textContent=brand||'Chưa chọn';$('summaryModel').textContent='Chưa chọn';$('productInfo').hidden=true;invalidateDraft();}
+function updateSelection(){const p=selected();$('summaryModel').textContent=p?p.model:'Chưa chọn';const info=$('productInfo');clear(info);info.hidden=!p;if(p){[["Phân nhóm",p.group||'Chưa xác định'],["Module",Number.isFinite(p.widthMm)&&Number.isFinite(p.heightMm)?p.widthMm+' × '+p.heightMm+' mm':'Chưa có kích thước'],["Dòng dữ liệu",p.catalogRow]].forEach(([k,v])=>{const item=el('span');item.appendChild(el('strong',k+': '));item.appendChild(document.createTextNode(v));info.appendChild(item);});}invalidateDraft();}
+function resultItem(root,label,value){const card=el('div',undefined,'result-item');card.appendChild(el('span',label));card.appendChild(el('strong',value===null||value===undefined?'Chưa có dữ liệu':value));root.appendChild(card);}
+function renderWarnings(root,warnings){(warnings||[]).forEach(w=>root.appendChild(el('p',w,'warning')));}
+$('brand').addEventListener('change',renderModels);$('model').addEventListener('change',updateSelection);$('quantity').addEventListener('input',()=>{$('summaryQuantity').textContent=$('quantity').value||'—';invalidateDraft();});
+['customer','reference','note'].forEach(id=>$(id).addEventListener('input',invalidateDraft));
+$('bomBtn').addEventListener('click',()=>{
+ const p=ensureInput('tính linh kiện');if(!p)return;
+ const w=Number($('screenWidthMm').value),h=Number($('screenHeightMm').value);
+ if(!Number.isFinite(w)||!Number.isFinite(h)||w<=0||h<=0){notify('Nhập chiều ngang và chiều cao màn hình lớn hơn 0.','error');$('screenWidthMm').focus();return;}
+ notify('Đang tính số lượng linh kiện từ danh mục và định mức…');
+ runServer('uocTinhLinhKien',{key:p.key,screenWidthMm:w,screenHeightMm:h},r=>{
+   const root=$('bomResult');clear(root);const grid=el('div',undefined,'result-grid');
+   resultItem(grid,'Số module dự kiến',r.modules+' tấm ('+r.countX+' × '+r.countY+')');
+   resultItem(grid,'Kích thước thực tế',r.actualWidthMm+' × '+r.actualHeightMm+' mm');
+   resultItem(grid,'Diện tích',Number(r.actualAreaM2).toFixed(3)+' m²');
+   resultItem(grid,'Số nguồn dự kiến',r.estimatedPowerCount);
+   resultItem(grid,'Số card thu dự kiến',r.estimatedCardCount);
+   resultItem(grid,'Trạng thái định mức',r.sourceStatus);
+   root.appendChild(grid);renderWarnings(root,r.warnings);
+   notify('Đã tính số lượng linh kiện dự kiến. Cần xác nhận kỹ thuật trước khi sử dụng.','ok');
+   root.scrollIntoView({behavior:'smooth',block:'nearest'});
+ });
+});
+$('draftBtn').addEventListener('click',()=>{
+ const p=ensureInput('tạo báo giá nháp');if(!p)return;
+ if(!$('customer').value.trim()){notify('Để tạo báo giá nháp, nhập tên Khách hàng / đơn vị ở BƯỚC 02.','error');$('customer').scrollIntoView({behavior:'smooth',block:'center'});$('customer').focus();return;}
+ const qty=Number($('quantity').value);
+ if(!Number.isInteger(qty)||qty<=0){notify('Số lượng phải là số nguyên dương.','error');$('quantity').focus();return;}
+ notify('Đang tạo bản nháp báo giá…');
+ const req={mode:state.mode,customer:$('customer').value,key:p.key,quantity:qty,reference:$('reference').value,note:$('note').value};
+ runServer('taoBanNhapBaoGia',req,r=>{
+   state.draft=r;const root=$('draftResult');clear(root);const grid=el('div',undefined,'result-grid');
+   [['Trạng thái',r.status],['Khách hàng',r.customer],['Hình thức báo giá',modeLabel()],['Sản phẩm',r.items[0].name],['Số lượng',r.quantity],['Giá bán','Chưa có giá được duyệt']].forEach(([k,v])=>resultItem(grid,k,v));
+   root.appendChild(grid);renderWarnings(root,r.warnings);$('draftSection').hidden=false;$('printBtn').disabled=false;
+   $('draftSection').scrollIntoView({behavior:'smooth',block:'start'});
+   notify('Đã tạo bản nháp. Chưa thể phát hành bảng giá bán khi chưa có giá duyệt.','ok');
+ });
+});
+$('printBtn').addEventListener('click',()=>{if(!state.draft)return;const r=state.draft;let printable=$('printArea');if(!printable){printable=el('div',undefined,'draft-print');printable.id='printArea';document.body.appendChild(printable);}clear(printable);printable.appendChild(el('h2','HACOLED — BẢN NHÁP BÁO GIÁ'));printable.appendChild(el('p','KHÔNG ĐƯỢC PHÁT HÀNH — CHƯA CÓ GIÁ ĐƯỢC DUYỆT'));[['Khách hàng',r.customer],['Loại báo giá',modeLabel()],['Sản phẩm',r.items[0].name],['Số lượng',r.quantity],['Đơn giá','Chưa có giá bán'],['Ghi chú',r.note||'—']].forEach(([label,value])=>{const row=el('p');row.appendChild(el('strong',label+': '));row.appendChild(document.createTextNode(String(value)));printable.appendChild(row);});window.print();});
+const menuToggle=$('menuToggle'), scrim=$('sidebarScrim'), side=document.querySelector('.sidebar');
+function closeMenu(){side.classList.remove('open');scrim.hidden=true;menuToggle.setAttribute('aria-expanded','false');document.body.style.overflow='';}
+menuToggle.addEventListener('click',()=>{const opened=!side.classList.contains('open');side.classList.toggle('open',opened);scrim.hidden=!opened;menuToggle.setAttribute('aria-expanded',String(opened));document.body.style.overflow=opened?'hidden':'';});
+scrim.addEventListener('click',closeMenu);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+// Apps Script HTMLService contains <base target="_top">. Never let local anchors
+// navigate the top frame: doing so may open a blank page outside the app.
+function navigateWithinApp(anchor) {
+  const id=anchor.getAttribute('href').slice(1);
+  const target=$(id);
+  if(!target){notify('Không tìm thấy khu vực '+id+' trong giao diện.','error');return;}
+  closeMenu();
+  side.querySelectorAll('.nav-link').forEach(x=>x.classList.toggle('active',x===anchor));
+  target.scrollIntoView({behavior:'smooth',block:'start'});
+  // Avoid updating window.top or URL hash: this is an embedded Apps Script iframe.
+  if(id==='config')notify('Đã mở Tạo báo giá. Chọn hình thức, nhập khách hàng và chọn hãng/model ở BƯỚC 02.','ok');
+  if(id==='bom')notify('Đã mở Tính linh kiện. Chọn hãng/model ở BƯỚC 02, rồi nhập kích thước và bấm Tính linh kiện.','ok');
+}
+side.querySelectorAll('nav a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  navigateWithinApp(a);
+}));
+document.querySelectorAll('a.brand-mark[href^="#"]').forEach(a=>a.addEventListener('click',e=>{
+  e.preventDefault();
+  e.stopPropagation();
+  navigateWithinApp(a);
+}));
+function applyData(data){
+  if(!data||!Array.isArray(data.products)||!data.products.length){error(new Error('Không đọc được DANH MUC!J:P từ Google Sheets đã cấu hình.'));return;}
+  state.products=data.products;
+  const links=data.originalSheetLinks||{};
+  $('pricingLink').href=links.pricing||'#';$('componentsLink').href=links.components||'#';$('sourceLink').href=(links.pricing||'#').split('#')[0];
+  renderBrand();renderMode(Array.isArray(data.modes)?data.modes:[]);$('summaryMode').textContent=modeLabel();renderModels();
+  $('retryConnect').style.display='none';
+  notify('Đã kết nối '+state.products.length+' sản phẩm từ file nguồn. Chỉ sử dụng báo giá nháp.','ok');
+}
+function retry(){
+  $('retryConnect').style.display='none';notify('Đang thử kết nối lại với dữ liệu sản phẩm…');
+  if(typeof google==='undefined'||!google.script||!google.script.run){error(new Error('Trang không chạy trong Google Apps Script /exec hoặc /dev.'));return;}
+  // Fallback có watchdog để người dùng không phải nhìn trạng thái chờ mãi.
+  let finished=false;
+  const watchdog=setTimeout(()=>{if(!finished){finished=true;error(new Error('Quá thời gian nhận phản hồi. Kiểm tra Apps Script > Executions, quyền truy cập và triển khai New version.'));}},15000);
+  try{google.script.run.withSuccessHandler(data=>{if(finished)return;finished=true;clearTimeout(watchdog);applyData(data);})
+    .withFailureHandler(err=>{if(finished)return;finished=true;clearTimeout(watchdog);error(err);}).danhSachKhoiTao();}
+  catch(err){if(!finished){finished=true;clearTimeout(watchdog);error(err);}}
+}
+$('retryConnect').addEventListener('click',retry);
+function init(){
+  try{
+    const raw=$('hacoledBootstrap').textContent;
+    const obj=JSON.parse(raw);
+    if(obj && obj.ok){applyData(obj.data);return;}
+    if(obj && obj.error){error(new Error(obj.error));return;}
+    retry();
+  }catch(err){error(new Error('Không đọc được dữ liệu khởi tạo: '+err.message));}
+}
+init();
+})();
+</script>

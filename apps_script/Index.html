@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <?!= include('Styles'); ?>
+</head>
+<body>
+<div class="workspace">
+  <aside class="sidebar">
+    <a class="brand-mark" href="#home" target="_self" aria-label="HACOLED">
+      <span class="logo-shape">H<span class="logo-dot">•</span></span><span class="brand-text"><strong>Haco<span class="brand-red">LED</span></strong><small>QUOTATION WORKSPACE</small></span>
+    </a>
+    <div class="sidebar-label">KHÔNG GIAN LÀM VIỆC</div>
+    <nav aria-label="Điều hướng">
+      <a href="#home" target="_self" class="nav-link active"><span class="nav-icon">▦</span>Tổng quan</a>
+      <a href="#config" target="_self" class="nav-link"><span class="nav-icon">▤</span>Tạo báo giá</a>
+      <a href="#bom" target="_self" class="nav-link"><span class="nav-icon">▧</span>Tính linh kiện</a>
+      <a id="pricingLink" target="_blank" rel="noopener noreferrer" class="nav-link"><span class="nav-icon">⌗</span>Tính giá <span class="external">↗</span></a>
+      <a id="componentsLink" target="_blank" rel="noopener noreferrer" class="nav-link"><span class="nav-icon">◇</span>Sheet linh kiện <span class="external">↗</span></a>
+    </nav>
+    <div class="sidebar-bottom"><div class="dongson-wheel" aria-hidden="true"></div>
+      <div class="sidebar-status"><span class="status-dot"></span> Nguồn dữ liệu HACOLED</div>
+      <p>Đọc trực tiếp bản chuyển đổi từ file tính giá gốc.</p>
+      <span class="sidebar-version">Giai đoạn 1 · Báo giá nháp</span>
+    </div>
+  </aside>
+  <button id="sidebarScrim" class="sidebar-scrim" type="button" aria-label="Đóng menu" hidden></button>
+  <main class="main" id="home">
+    <div class="topbar">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Mở menu" aria-expanded="false">☰</button>
+      <div class="breadcrumb">HACOLED <span>/</span> Hệ thống báo giá <span>/</span> Tổng quan</div>
+      <span class="topbar-date">MÔI TRƯỜNG NỘI BỘ · CHƯA PHÁT HÀNH</span>
+    </div>
+    <div class="content"><div class="greeting-strip"><div><small>HỆ THỐNG NỘI BỘ HACOLED</small><strong>Không gian làm việc báo giá</strong><span>Danh mục từ file tính giá gốc · Báo giá chỉ phát hành sau phê duyệt</span></div><div class="dongson-wheel" aria-hidden="true"></div></div>
+      <div class="page-head">
+        <div><div class="eyebrow">QUẢN LÝ BÁO GIÁ</div><h1>Hệ thống báo giá <span>HACOLED</span></h1><p>Tạo cấu hình báo giá nhanh từ danh mục sản phẩm thống nhất.</p></div>
+        <a class="outline-action" id="sourceLink" target="_blank" rel="noopener noreferrer">Mở bảng tính gốc <span>↗</span></a>
+      </div>
+      <div id="notice" class="notice" role="status" aria-live="polite"><span class="notice-dot"></span><span id="noticeText">Đang kiểm tra nguồn dữ liệu…</span> <button id="retryConnect" type="button" style="display:none;margin-left:12px;border:1px solid #bd2027;color:#bd2027;background:white;border-radius:8px;padding:5px 10px;cursor:pointer">Thử lại</button></div>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-label">SẢN PHẨM TRONG DANH MỤC</div><div class="stat-value" id="productCount">—</div><div class="stat-desc">Đọc từ file Excel gốc</div></div>
+        <div class="stat"><div class="stat-label">HÃNG / NHÓM SẢN PHẨM</div><div class="stat-value" id="brandCount">—</div><div class="stat-desc">Chọn đúng hãng và model</div></div>
+        <div class="stat"><div class="stat-label">TRẠNG THÁI GIÁ</div><div class="stat-value stat-text">Chưa phê duyệt</div><div class="stat-desc">Chỉ lập bản nháp, chưa phát hành</div></div>
+      </div>
+      <section class="section" id="config">
+        <div class="section-heading"><div><div class="section-kicker">BƯỚC 01</div><h2>Chọn hình thức báo giá</h2><p>Mỗi hình thức sử dụng cùng danh mục và dữ liệu tính giá.</p></div></div>
+        <div class="modes-grid" id="modes" role="group" aria-label="Hình thức báo giá"></div>
+      </section>
+      <div class="working-grid">
+        <div class="form-column">
+          <section class="section card-form" id="productSection">
+            <div class="section-heading"><div><div class="section-kicker">BƯỚC 02</div><h2>Thông tin báo giá</h2><p>Để tạo báo giá: nhập khách hàng, chọn hãng và model. Tính linh kiện chỉ cần chọn hãng/model.</p></div></div>
+            <div class="formgrid">
+              <label class="field wide">Khách hàng / đơn vị <span class="required">*</span><input id="customer" placeholder="Ví dụ: Công ty ABC" maxlength="160" autocomplete="organization"></label>
+              <label class="field">Hãng / nhóm sản phẩm <span class="required">*</span><select id="brand"><option value="">Đang tải hãng…</option></select></label>
+              <label class="field">Model <span class="required">*</span><select id="model" disabled><option value="">Chọn hãng trước</option></select></label>
+              <div id="productInfo" class="product-info wide" hidden></div>
+              <label class="field">Số lượng <span class="required">*</span><input id="quantity" type="number" min="1" step="1" value="1"></label>
+              <label class="field">Mã dự án / tham chiếu<input id="reference" maxlength="160" placeholder="Không bắt buộc"></label>
+              <label class="field wide">Ghi chú<textarea id="note" rows="3" maxlength="1000" placeholder="Yêu cầu riêng, giao hàng, lắp đặt…"></textarea></label>
+            </div>
+          </section>
+          <section class="section card-form" id="bom">
+            <div class="section-heading"><div><div class="section-kicker">CÔNG CỤ TÍNH TOÁN</div><h2>Tính số lượng linh kiện</h2><p>Chọn hãng và model ở BƯỚC 02, sau đó nhập kích thước màn hình để tính.</p></div></div>
+            <div class="formgrid">
+              <label class="field">Chiều ngang màn hình (mm)<input id="screenWidthMm" type="number" min="1" step="1" value="5760"></label>
+              <label class="field">Chiều cao màn hình (mm)<input id="screenHeightMm" type="number" min="1" step="1" value="3840"></label>
+            </div>
+            <button id="bomBtn" class="btn secondary" type="button">Tính linh kiện <span>→</span></button>
+            <div id="bomResult" class="result"></div>
+          </section>
+        </div>
+        <div class="summary-column">
+          <section class="summary-card"><div class="summary-eyebrow">TÓM TẮT LỰA CHỌN</div><h3>Báo giá đang tạo</h3>
+            <div class="summary-row"><span>Hình thức</span><strong id="summaryMode">Báo giá bán linh kiện</strong></div>
+            <div class="summary-row"><span>Hãng</span><strong id="summaryBrand">Chưa chọn</strong></div>
+            <div class="summary-row"><span>Model</span><strong id="summaryModel">Chưa chọn</strong></div>
+            <div class="summary-row"><span>Số lượng</span><strong id="summaryQuantity">1</strong></div>
+            <div class="summary-divider"></div>
+            <div class="price-label">Tổng giá trị báo giá</div><div class="price-value">Chờ giá duyệt</div>
+            <div class="info-note">Giá nhập, giá vốn và hệ số nội bộ không hiển thị trong báo giá.</div>
+            <button id="draftBtn" class="btn primary full" type="button">Tạo báo giá nháp <span>→</span></button>
+            <button id="printBtn" class="btn ghost full" type="button" disabled>In bản nháp</button>
+          </section>
+          <div class="support-card"><div class="support-icon">i</div><div><strong>Lưu ý vận hành</strong><p>Báo giá hiện chưa kết nối nguồn giá bán đã phê duyệt. Không sử dụng bản nháp để gửi khách hàng.</p></div></div>
+        </div>
+      </div>
+      <section class="section draft-section" id="draftSection" hidden><div class="section-heading"><div><div class="section-kicker">KẾT QUẢ</div><h2>Bản nháp báo giá</h2></div></div><div id="draftResult" class="result"></div></section>
+      <footer class="footer">© HACOLED · Phần Tính giá và Linh kiện vẫn sử dụng công thức từ file nguồn. Giao diện không chỉnh sửa giá vốn.</footer>
+    </div>
+  </main>
+</div>
+<script id="hacoledBootstrap" type="application/json"><?!= bootstrapJson ?></script>
+<?!= include('Scripts'); ?>
+</body>
+</html>
